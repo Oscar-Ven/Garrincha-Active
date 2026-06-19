@@ -2,23 +2,6 @@
   "framework": "nextjs",
   "buildCommand": "prisma generate && next build",
   "installCommand": "npm ci",
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "SESSION_SECRET": "@session_secret",
-    "NEXT_PUBLIC_APP_URL": "@next_public_app_url",
-    "RESEND_API_KEY": "@resend_api_key",
-    "FROM_EMAIL": "@from_email",
-    "TWILIO_ACCOUNT_SID": "@twilio_account_sid",
-    "TWILIO_AUTH_TOKEN": "@twilio_auth_token",
-    "TWILIO_FROM_NUMBER": "@twilio_from_number",
-    "SUPABASE_URL": "@supabase_url",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
-    "SUPABASE_STORAGE_BUCKET": "@supabase_storage_bucket",
-    "UPSTASH_REDIS_REST_URL": "@upstash_redis_rest_url",
-    "UPSTASH_REDIS_REST_TOKEN": "@upstash_redis_rest_token",
-    "SENTRY_DSN": "@sentry_dsn",
-    "NEXT_PUBLIC_SENTRY_DSN": "@next_public_sentry_dsn"
-  },
   "headers": [
     {
       "source": "/(.*)",
@@ -35,7 +18,5 @@
         { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
     }
-  ],
-  "rewrites": [],
-  "regions": ["iad1"]
+  ]
 }
