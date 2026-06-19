@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { getFriendsLeaderboard } from '@/services/leaderboard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LeaderboardRow } from '@/components/player/leaderboard-row'
-import { BarChart3, Shield } from 'lucide-react'
+import { BarChart3, Shield, Users } from 'lucide-react'
 import Link from 'next/link'
 
 export const metadata = { title: 'Leaderboards' }
@@ -43,11 +44,23 @@ export default async function LeaderboardsPage({
 
   const { filter = 'global', metric = 'points' } = await searchParams
   const safeMetric = (metric === 'distance' || metric === 'minutes') ? metric : 'points'
+  const safeFilter = (['global', 'weekly', 'monthly', 'friends'] as const).includes(
+    filter as 'global' | 'weekly' | 'monthly' | 'friends'
+  )
+    ? (filter as 'global' | 'weekly' | 'monthly' | 'friends')
+    : 'global'
 
-  const entries = await getGlobalLeaderboard(safeMetric, 50)
-  const userRank = entries.findIndex((e) => e.userId === session.id) + 1
+  const isFriends = safeFilter === 'friends'
 
-  const filterTabs = ['global', 'weekly', 'monthly']
+  const [entries, friendsEntries] = await Promise.all([
+    isFriends ? Promise.resolve([]) : getGlobalLeaderboard(safeMetric, 50),
+    isFriends ? getFriendsLeaderboard(session.id, safeMetric) : Promise.resolve([]),
+  ])
+
+  const activeEntries = isFriends ? friendsEntries : entries
+  const userRank = activeEntries.findIndex((e) => e.userId === session.id) + 1
+
+  const filterTabs = ['global', 'weekly', 'monthly', 'friends']
   const metricTabs = ['points', 'distance', 'minutes']
 
   return (
@@ -78,10 +91,11 @@ export default async function LeaderboardsPage({
             <Link
               key={f}
               href={`?filter=${f}&metric=${safeMetric}`}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                filter === f ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-white'
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
+                safeFilter === f ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
+              {f === 'friends' && <Users className="h-3.5 w-3.5" />}
               {f}
             </Link>
           ))}
@@ -104,21 +118,37 @@ export default async function LeaderboardsPage({
       {/* User rank highlight */}
       {userRank > 0 && (
         <div className="rounded-lg bg-green-900/30 border border-green-700/50 px-4 py-2 text-sm text-green-300">
-          Your rank: <span className="font-bold">#{userRank}</span> globally by {safeMetric}
+          Your rank: <span className="font-bold">#{userRank}</span>{' '}
+          {isFriends ? 'among friends' : 'globally'} by {safeMetric}
+        </div>
+      )}
+
+      {isFriends && friendsEntries.length === 0 && (
+        <div className="rounded-lg bg-slate-800 border border-slate-700 px-4 py-6 text-center">
+          <Users className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+          <p className="text-slate-400 text-sm">
+            You aren&apos;t following anyone yet.{' '}
+            <a href="/app/explore" className="text-green-400 underline">
+              Explore players
+            </a>{' '}
+            to find people to follow.
+          </p>
         </div>
       )}
 
       {/* Table */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white text-base capitalize">{filter} · By {safeMetric}</CardTitle>
+          <CardTitle className="text-white text-base capitalize">
+            {isFriends ? 'Friends' : safeFilter} · By {safeMetric}
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y divide-slate-700">
-            {entries.length === 0 ? (
+            {activeEntries.length === 0 ? (
               <p className="text-slate-400 text-sm text-center py-8">No players yet.</p>
             ) : (
-              entries.map((entry) => (
+              activeEntries.map((entry) => (
                 <LeaderboardRow
                   key={entry.userId}
                   entry={entry}

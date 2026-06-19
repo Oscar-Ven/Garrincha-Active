@@ -40,7 +40,14 @@ export default async function AdminSessionsPage() {
       >
         <span className="text-lg">{activityTypeIcon(s.type as ActivityType)}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{s.title}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-white truncate">{s.title}</p>
+            {(s.isRecurring || s.parentSessionId) && (
+              <span className="shrink-0 rounded-full border border-blue-600/40 bg-blue-600/10 px-2 py-0.5 text-xs font-medium text-blue-400">
+                🔁 Recurring
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400">
             {s.center.name} · {activityTypeLabel(s.type as ActivityType)}
           </p>

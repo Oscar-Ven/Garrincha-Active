@@ -320,6 +320,7 @@ type LedgerRow = {
   points: number
   reason: string
   createdAt: Date
+  expiresAt: Date | null
 }
 
 function PointsHistoryTable({ rows }: { rows: LedgerRow[] }) {
@@ -341,31 +342,50 @@ function PointsHistoryTable({ rows }: { rows: LedgerRow[] }) {
     <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800">
       {/* Mobile card list */}
       <ul className="divide-y divide-slate-700/60 sm:hidden">
-        {rows.map((row) => (
-          <li key={row.id} className="flex items-start gap-3 px-4 py-4">
-            <div
-              className={cn(
-                'mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ring-1',
-                sourceTypePill(row.sourceType),
-              )}
-            >
-              {sourceTypeLabel(row.sourceType)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm text-slate-200">{row.reason}</p>
-              <p className="mt-0.5 text-xs text-slate-500">{formatDate(row.createdAt)}</p>
-            </div>
-            <span
-              className={cn(
-                'shrink-0 text-sm font-bold tabular-nums',
-                row.points >= 0 ? 'text-green-400' : 'text-red-400',
-              )}
-            >
-              {row.points >= 0 ? '+' : ''}
-              {row.points.toLocaleString()}
-            </span>
-          </li>
-        ))}
+        {rows.map((row) => {
+          const now = new Date()
+          const isExpiringSoon =
+            row.expiresAt != null &&
+            row.expiresAt > now &&
+            row.expiresAt <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) &&
+            row.points > 0
+          const isFutureExpiry = row.expiresAt != null && row.expiresAt > now && row.points > 0
+          return (
+            <li key={row.id} className="flex items-start gap-3 px-4 py-4">
+              <div
+                className={cn(
+                  'mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ring-1',
+                  sourceTypePill(row.sourceType),
+                )}
+              >
+                {sourceTypeLabel(row.sourceType)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-slate-200">{row.reason}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{formatDate(row.createdAt)}</p>
+                {isFutureExpiry && row.expiresAt && (
+                  <p
+                    className={cn(
+                      'mt-0.5 text-xs',
+                      isExpiringSoon ? 'text-orange-400' : 'text-slate-600',
+                    )}
+                  >
+                    Expires {formatDate(row.expiresAt)}
+                  </p>
+                )}
+              </div>
+              <span
+                className={cn(
+                  'shrink-0 text-sm font-bold tabular-nums',
+                  row.points >= 0 ? 'text-green-400' : 'text-red-400',
+                )}
+              >
+                {row.points >= 0 ? '+' : ''}
+                {row.points.toLocaleString()}
+              </span>
+            </li>
+          )
+        })}
       </ul>
 
       {/* Desktop table */}
@@ -387,38 +407,57 @@ function PointsHistoryTable({ rows }: { rows: LedgerRow[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-700/40">
-          {rows.map((row) => (
-            <tr
-              key={row.id}
-              className="group transition-colors hover:bg-slate-700/30"
-            >
-              <td className="whitespace-nowrap px-5 py-3.5 text-slate-400">
-                {formatDate(row.createdAt)}
-              </td>
-              <td className="px-5 py-3.5">
-                <span
+          {rows.map((row) => {
+            const now = new Date()
+            const isExpiringSoon =
+              row.expiresAt != null &&
+              row.expiresAt > now &&
+              row.expiresAt <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) &&
+              row.points > 0
+            const isFutureExpiry = row.expiresAt != null && row.expiresAt > now && row.points > 0
+            return (
+              <tr
+                key={row.id}
+                className="group transition-colors hover:bg-slate-700/30"
+              >
+                <td className="whitespace-nowrap px-5 py-3.5 text-slate-400">
+                  {formatDate(row.createdAt)}
+                </td>
+                <td className="px-5 py-3.5">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1',
+                      sourceTypePill(row.sourceType),
+                    )}
+                  >
+                    {sourceTypeLabel(row.sourceType)}
+                  </span>
+                </td>
+                <td className="max-w-xs px-5 py-3.5 text-slate-300">
+                  <span className="block truncate">{row.reason}</span>
+                  {isFutureExpiry && row.expiresAt && (
+                    <span
+                      className={cn(
+                        'block text-xs mt-0.5',
+                        isExpiringSoon ? 'text-orange-400' : 'text-slate-600',
+                      )}
+                    >
+                      Expires {formatDate(row.expiresAt)}
+                    </span>
+                  )}
+                </td>
+                <td
                   className={cn(
-                    'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1',
-                    sourceTypePill(row.sourceType),
+                    'whitespace-nowrap px-5 py-3.5 text-right text-sm font-bold tabular-nums',
+                    row.points >= 0 ? 'text-green-400' : 'text-red-400',
                   )}
                 >
-                  {sourceTypeLabel(row.sourceType)}
-                </span>
-              </td>
-              <td className="max-w-xs px-5 py-3.5 text-slate-300">
-                <span className="block truncate">{row.reason}</span>
-              </td>
-              <td
-                className={cn(
-                  'whitespace-nowrap px-5 py-3.5 text-right text-sm font-bold tabular-nums',
-                  row.points >= 0 ? 'text-green-400' : 'text-red-400',
-                )}
-              >
-                {row.points >= 0 ? '+' : ''}
-                {row.points.toLocaleString()}
-              </td>
-            </tr>
-          ))}
+                  {row.points >= 0 ? '+' : ''}
+                  {row.points.toLocaleString()}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -556,6 +595,14 @@ export default async function WalletPage() {
   const totalEarned = earnedRows.reduce((s, r) => s + r.points, 0)
   const totalSpent = Math.abs(spentRows.reduce((s, r) => s + r.points, 0))
 
+  // Expiry summary: points expiring within the next 30 days
+  const now = new Date()
+  const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const expiringRows = ledger.filter(
+    (r) => r.expiresAt != null && r.expiresAt > now && r.expiresAt <= in30Days && r.points > 0,
+  )
+  const expiringPts = expiringRows.reduce((s, r) => s + r.points, 0)
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <div className="mx-auto max-w-4xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
@@ -636,6 +683,28 @@ export default async function WalletPage() {
             </div>
           ))}
         </section>
+
+        {/* ── Expiry warning banner ── */}
+        {expiringPts > 0 && (
+          <div className="flex items-start gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3.5">
+            <svg
+              className="mt-0.5 h-5 w-5 shrink-0 text-orange-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <p className="text-sm text-orange-300">
+              <span className="font-semibold text-orange-400">
+                {expiringPts.toLocaleString()} pts
+              </span>{' '}
+              expiring within 30 days. Redeem them before they expire.
+            </p>
+          </div>
+        )}
 
         {/* ── Points history ── */}
         <section aria-labelledby="points-history-heading">

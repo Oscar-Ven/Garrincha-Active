@@ -30,6 +30,9 @@ export interface CenterRow {
   isActive: boolean
   playerCount: number
   createdAt: string
+  latitude: number | null
+  longitude: number | null
+  checkInRadiusM: number
 }
 
 interface Props {
@@ -219,6 +222,49 @@ function EditCenterDialog({
             <Field label="Address" name="address" defaultValue={center.address ?? ''} />
             <Field label="Email" name="email" type="email" defaultValue={center.email ?? ''} />
             <Field label="Description" name="description" isTextarea defaultValue={center.description ?? ''} />
+            <div className="flex flex-col gap-1.5">
+              <Label>GPS Location (for geo check-in)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="latitude" className="text-xs text-slate-400">Latitude</Label>
+                  <Input
+                    id="latitude"
+                    name="latitude"
+                    type="number"
+                    step="0.000001"
+                    min="-90"
+                    max="90"
+                    defaultValue={center.latitude ?? ''}
+                    placeholder="e.g. 33.888629"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="longitude" className="text-xs text-slate-400">Longitude</Label>
+                  <Input
+                    id="longitude"
+                    name="longitude"
+                    type="number"
+                    step="0.000001"
+                    min="-180"
+                    max="180"
+                    defaultValue={center.longitude ?? ''}
+                    placeholder="e.g. 35.495480"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="checkInRadiusM" className="text-xs text-slate-400">Check-in radius (metres)</Label>
+                <Input
+                  id="checkInRadiusM"
+                  name="checkInRadiusM"
+                  type="number"
+                  min="10"
+                  max="2000"
+                  defaultValue={center.checkInRadiusM}
+                  placeholder="150"
+                />
+              </div>
+            </div>
 
             {error && (
               <p role="alert" className="rounded-lg border border-red-700/40 bg-red-900/20 px-3 py-2 text-sm text-red-400">

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { getUserGear } from '@/services/gear'
+import { prisma } from '@/lib/db'
 import { GearType } from '@/generated/prisma'
 
 const GEAR_ICONS: Record<GearType, string> = { SHOES: '👟', BIKE: '🚴', WETSUIT: '🏊', OTHER: '⚙️' }
@@ -14,6 +15,15 @@ export default async function GearPage() {
   if (!user) redirect('/login')
 
   const gear = await getUserGear(user.id)
+
+  // Fetch maintenance counts for all gear items
+  const maintenanceCounts = await prisma.gearMaintenance.groupBy({
+    by: ['gearId'],
+    where: { gearId: { in: gear.map((g) => g.id) } },
+    _count: { id: true },
+  })
+  const maintenanceCountMap = new Map(maintenanceCounts.map((m) => [m.gearId, m._count.id]))
+
   const active = gear.filter((g) => !g.isRetired)
   const retired = gear.filter((g) => g.isRetired)
 
@@ -83,6 +93,9 @@ export default async function GearPage() {
                         <span className="text-slate-500">/ {g.alertThresholdKm} km limit</span>
                       )}
                       <span className="text-slate-500">{g._count.activities} activities</span>
+                      {(maintenanceCountMap.get(g.id) ?? 0) > 0 && (
+                        <span className="text-slate-500">🔧 {maintenanceCountMap.get(g.id)} maintenance</span>
+                      )}
                     </div>
 
                     {pct != null && (

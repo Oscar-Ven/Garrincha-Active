@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from '@/lib/auth'
 import { getGear, retireGear, unretireGear, deleteGear } from '@/services/gear'
+import { prisma } from '@/lib/db'
 import { GearType, ActivityType } from '@/generated/prisma'
 import { activityTypeIcon } from '@/lib/utils'
 
@@ -22,7 +23,13 @@ export default async function GearDetailPage({ params }: { params: Promise<{ id:
   const user = await getCurrentUser()
   if (!user) redirect('/login')
 
-  const gear = await getGear(id, user.id)
+  const [gear, maintenanceLogs] = await Promise.all([
+    getGear(id, user.id),
+    prisma.gearMaintenance.findMany({
+      where: { gear: { id, userId: user.id } },
+      orderBy: { performedAt: 'desc' },
+    }),
+  ])
   if (!gear) notFound()
 
   const pct = gear.alertThresholdKm
@@ -42,6 +49,42 @@ export default async function GearDetailPage({ params }: { params: Promise<{ id:
     const u = await getCurrentUser()
     if (!u) redirect('/login')
     await unretireGear(id, u.id)
+    revalidatePath(`/app/gear/${id}`)
+  }
+
+  async function addGearMaintenance(formData: FormData) {
+    'use server'
+    const u = await getCurrentUser()
+    if (!u) redirect('/login')
+    // Verify ownership
+    const g = await prisma.gear.findFirst({ where: { id, userId: u.id } })
+    if (!g) return
+
+    const title = (formData.get('maintTitle') as string | null)?.trim()
+    if (!title) return
+
+    const performedAtRaw = formData.get('performedAt') as string | null
+    const performedAt = performedAtRaw ? new Date(performedAtRaw) : new Date()
+
+    const distanceRaw = formData.get('distanceAtKm') as string | null
+    const distanceAtKm = distanceRaw ? parseFloat(distanceRaw) : null
+
+    const costRaw = formData.get('costAmount') as string | null
+    const costAmount = costRaw ? parseFloat(costRaw) : null
+
+    const description = (formData.get('maintDescription') as string | null)?.trim() || null
+
+    await prisma.gearMaintenance.create({
+      data: {
+        gearId: id,
+        title,
+        performedAt,
+        distanceAtKm,
+        costAmount,
+        description,
+      },
+    })
+
     revalidatePath(`/app/gear/${id}`)
   }
 
@@ -176,6 +219,104 @@ export default async function GearDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
       )}
+
+      {/* Maintenance Log */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+          Maintenance Log {maintenanceLogs.length > 0 && `(${maintenanceLogs.length})`}
+        </h2>
+
+        {maintenanceLogs.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {maintenanceLogs.map((log) => (
+              <div key={log.id} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-white text-sm">{log.title}</p>
+                  <p className="shrink-0 text-xs text-slate-500">
+                    {new Date(log.performedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-400">
+                  {log.distanceAtKm != null && <span>At {log.distanceAtKm.toFixed(0)} km</span>}
+                  {log.costAmount != null && <span>€{log.costAmount.toFixed(2)}</span>}
+                </div>
+                {log.description && (
+                  <p className="mt-1.5 text-xs text-slate-500">{log.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Log Maintenance form */}
+        <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-4">
+          <h3 className="mb-3 text-sm font-medium text-slate-300">Log Maintenance</h3>
+          <form action={addGearMaintenance} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs text-slate-400">Title <span className="text-red-400">*</span></label>
+                <input
+                  name="maintTitle"
+                  type="text"
+                  required
+                  maxLength={100}
+                  placeholder="e.g. Tyre change"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-slate-400">Date performed <span className="text-red-400">*</span></label>
+                <input
+                  name="performedAt"
+                  type="date"
+                  required
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-green-600"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-slate-400">Distance at time (km)</label>
+                <input
+                  name="distanceAtKm"
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  defaultValue={gear.totalDistanceKm > 0 ? gear.totalDistanceKm.toFixed(1) : ''}
+                  placeholder="e.g. 1250"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-slate-400">Cost (€)</label>
+                <input
+                  name="costAmount"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="e.g. 29.99"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+                />
+              </div>
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs text-slate-400">Notes (optional)</label>
+                <textarea
+                  name="maintDescription"
+                  rows={2}
+                  maxLength={500}
+                  placeholder="Additional details…"
+                  className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-slate-700 py-2.5 text-sm font-medium text-white hover:bg-slate-600 transition-colors"
+            >
+              Save Maintenance Record
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }

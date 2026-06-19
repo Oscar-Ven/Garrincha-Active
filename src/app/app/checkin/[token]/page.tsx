@@ -115,6 +115,12 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
           </p>
         </div>
       )}
+
+      <p className="mt-6 text-center text-xs text-slate-500">
+        <Link href="/app/checkin/geo" className="text-slate-400 hover:text-white underline underline-offset-2 transition-colors">
+          Or check in via GPS →
+        </Link>
+      </p>
     </div>
   )
 }

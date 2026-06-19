@@ -22,11 +22,27 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
 
   const myParticipation = session.participants.find((p) => p.userId === user.id)
   const isRegistered = myParticipation?.status === 'REGISTERED'
+  const isWaitlisted = myParticipation?.status === 'WAITLISTED'
   const isAttended = myParticipation?.status === 'ATTENDED'
-  const spotsTaken = session._count.participants
-  const spotsLeft = session.capacity > 0 ? session.capacity - spotsTaken : null
+
+  // Confirmed count = REGISTERED + ATTENDED (from _count query in getSession)
+  const confirmedCount = session._count.participants
+
+  // Waitlisted count for display
+  const waitlistedCount = session.participants.filter((p) => p.status === 'WAITLISTED').length
+
+  const spotsLeft = session.capacity > 0 ? session.capacity - confirmedCount : null
   const isFull = spotsLeft !== null && spotsLeft <= 0
   const isPast = session.startTime < new Date()
+
+  // Compute waitlist position
+  let waitlistPosition: number | null = null
+  if (isWaitlisted) {
+    const waitlistedParticipants = session.participants
+      .filter((p) => p.status === 'WAITLISTED')
+      .sort((a, b) => new Date(a.registeredAt).getTime() - new Date(b.registeredAt).getTime())
+    waitlistPosition = waitlistedParticipants.findIndex((p) => p.userId === user.id) + 1
+  }
 
   async function handleRegister() {
     'use server'
@@ -72,6 +88,12 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
                 <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> Registered
               </span>
             )}
+            {isWaitlisted && (
+              <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-yellow-600/40 bg-yellow-600/10 px-2.5 py-0.5 text-xs font-semibold text-yellow-400">
+                ⏳ Waitlisted
+                {waitlistPosition !== null && ` · #${waitlistPosition}`}
+              </span>
+            )}
             {isAttended && (
               <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-yellow-600/40 bg-yellow-600/10 px-2.5 py-0.5 text-xs font-semibold text-yellow-400">
                 ✅ Attended
@@ -93,9 +115,22 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
           <div className="rounded-xl bg-slate-700/40 px-4 py-3">
             <p className="text-xs text-slate-400">Spots</p>
             <p className="mt-0.5 text-sm font-semibold text-white">
-              {spotsTaken}{spotsLeft !== null ? `/${session.capacity}` : ''} attending
-              {spotsLeft !== null && !isFull && <span className="ml-1 text-green-400">({spotsLeft} left)</span>}
-              {isFull && <span className="ml-1 text-red-400">(Full)</span>}
+              {session.capacity > 0 ? (
+                <>
+                  {confirmedCount}/{session.capacity} spots
+                  {waitlistedCount > 0 && (
+                    <span className="ml-1.5 text-yellow-400">· {waitlistedCount} waitlisted</span>
+                  )}
+                  {!isFull && spotsLeft !== null && spotsLeft > 0 && (
+                    <span className="ml-1 text-green-400">({spotsLeft} left)</span>
+                  )}
+                  {isFull && waitlistedCount === 0 && (
+                    <span className="ml-1 text-red-400">(Full)</span>
+                  )}
+                </>
+              ) : (
+                <>{confirmedCount} attending</>
+              )}
             </p>
           </div>
           {session.pointsReward > 0 && (
@@ -113,20 +148,33 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
         {/* Action */}
         {!isPast && (
           <div className="mt-5 border-t border-slate-700 pt-5">
-            {isRegistered ? (
-              <form action={handleCancel}>
-                <button type="submit" className="rounded-xl border border-slate-600 px-6 py-2.5 text-sm font-medium text-slate-300 hover:border-red-600/40 hover:text-red-400 transition-colors">
-                  Cancel registration
-                </button>
-              </form>
+            {isRegistered || isWaitlisted ? (
+              <div className="space-y-3">
+                {isWaitlisted && waitlistPosition !== null && (
+                  <p className="text-sm text-yellow-400">
+                    You're #{waitlistPosition} on the waitlist. We'll notify you if a spot opens.
+                  </p>
+                )}
+                <form action={handleCancel}>
+                  <button
+                    type="submit"
+                    className="rounded-xl border border-slate-600 px-6 py-2.5 text-sm font-medium text-slate-300 hover:border-red-600/40 hover:text-red-400 transition-colors"
+                  >
+                    {isWaitlisted ? 'Leave waitlist' : 'Cancel registration'}
+                  </button>
+                </form>
+              </div>
             ) : !isAttended ? (
               <form action={handleRegister}>
                 <button
                   type="submit"
-                  disabled={isFull}
-                  className="rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-colors ${
+                    isFull
+                      ? 'bg-yellow-600 hover:bg-yellow-500'
+                      : 'bg-green-600 hover:bg-green-500'
+                  }`}
                 >
-                  {isFull ? 'Session Full' : 'Register'}
+                  {isFull ? 'Join Waitlist' : 'Register'}
                 </button>
               </form>
             ) : null}
@@ -138,28 +186,58 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Participants list */}
-      {session.participants.length > 0 && (
+      {session.participants.filter((p) => p.status !== 'WAITLISTED').length > 0 && (
         <section>
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Attendees ({session.participants.length})
+            Attendees ({session.participants.filter((p) => p.status !== 'WAITLISTED').length})
           </h2>
           <div className="space-y-2">
-            {session.participants.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-bold text-white">
-                  {p.user.name[0]}
+            {session.participants
+              .filter((p) => p.status !== 'WAITLISTED')
+              .map((p) => (
+                <div key={p.id} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-bold text-white">
+                    {p.user.name[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/app/players/${p.user.id}`} className="text-sm font-medium text-white hover:text-green-400 transition-colors">
+                      {p.user.name}
+                    </Link>
+                    <p className="text-xs text-slate-500">@{p.user.nickname}</p>
+                  </div>
+                  <span className={`text-xs font-medium ${p.status === 'ATTENDED' ? 'text-green-400' : 'text-slate-400'}`}>
+                    {p.status === 'ATTENDED' ? '✅ Attended' : 'Registered'}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <Link href={`/app/players/${p.user.id}`} className="text-sm font-medium text-white hover:text-green-400 transition-colors">
-                    {p.user.name}
-                  </Link>
-                  <p className="text-xs text-slate-500">@{p.user.nickname}</p>
+              ))}
+          </div>
+        </section>
+      )}
+
+      {/* Waitlist section */}
+      {waitlistedCount > 0 && (
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Waitlist ({waitlistedCount})
+          </h2>
+          <div className="space-y-2">
+            {session.participants
+              .filter((p) => p.status === 'WAITLISTED')
+              .sort((a, b) => new Date(a.registeredAt).getTime() - new Date(b.registeredAt).getTime())
+              .map((p, idx) => (
+                <div key={p.id} className="flex items-center gap-3 rounded-xl border border-yellow-700/30 bg-yellow-900/10 px-4 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-bold text-white">
+                    {p.user.name[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/app/players/${p.user.id}`} className="text-sm font-medium text-white hover:text-green-400 transition-colors">
+                      {p.user.name}
+                    </Link>
+                    <p className="text-xs text-slate-500">@{p.user.nickname}</p>
+                  </div>
+                  <span className="text-xs font-medium text-yellow-400">#{idx + 1}</span>
                 </div>
-                <span className={`text-xs font-medium ${p.status === 'ATTENDED' ? 'text-green-400' : 'text-slate-400'}`}>
-                  {p.status === 'ATTENDED' ? '✅ Attended' : 'Registered'}
-                </span>
-              </div>
-            ))}
+              ))}
           </div>
         </section>
       )}

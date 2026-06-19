@@ -30,6 +30,8 @@ export async function awardActivityPoints(
 
   const pointsToAward = Math.min(rawPoints, remaining)
 
+  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+
   await prisma.$transaction(async (tx) => {
     await tx.pointsLedger.create({
       data: {
@@ -38,6 +40,7 @@ export async function awardActivityPoints(
         sourceId: activityId,
         points: pointsToAward,
         reason: `Activity points for ${type}`,
+        expiresAt,
       },
     })
 
@@ -77,6 +80,8 @@ export async function awardPoints(
     return
   }
 
+  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+
   await prisma.$transaction(async (tx) => {
     await tx.pointsLedger.create({
       data: {
@@ -85,6 +90,7 @@ export async function awardPoints(
         sourceId: sourceId ?? null,
         points,
         reason: reason ?? `Points awarded: ${sourceType}`,
+        expiresAt,
       },
     })
 

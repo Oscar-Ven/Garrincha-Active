@@ -12,6 +12,7 @@ export default function NewSessionPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isRecurring, setIsRecurring] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -19,19 +20,27 @@ export default function NewSessionPage() {
     setError('')
 
     const fd = new FormData(e.currentTarget)
+    const body: Record<string, unknown> = {
+      centerId: fd.get('centerId'),
+      title: fd.get('title'),
+      description: fd.get('description') || undefined,
+      type: fd.get('type'),
+      startTime: fd.get('startTime'),
+      endTime: fd.get('endTime'),
+      capacity: fd.get('capacity') ? Number(fd.get('capacity')) : -1,
+      pointsReward: fd.get('pointsReward') ? Number(fd.get('pointsReward')) : 0,
+      isPublic: fd.get('isPublic') === 'on',
+      isRecurring,
+    }
+
+    if (isRecurring) {
+      body.recurrenceType = fd.get('recurrenceType')
+      body.recurrenceEndDate = fd.get('recurrenceEndDate')
+    }
+
     const res = await fetch('/api/admin/sessions', {
       method: 'POST',
-      body: JSON.stringify({
-        centerId: fd.get('centerId'),
-        title: fd.get('title'),
-        description: fd.get('description') || undefined,
-        type: fd.get('type'),
-        startTime: fd.get('startTime'),
-        endTime: fd.get('endTime'),
-        capacity: fd.get('capacity') ? Number(fd.get('capacity')) : -1,
-        pointsReward: fd.get('pointsReward') ? Number(fd.get('pointsReward')) : 0,
-        isPublic: fd.get('isPublic') === 'on',
-      }),
+      body: JSON.stringify(body),
       headers: { 'Content-Type': 'application/json' },
     })
 
@@ -118,6 +127,46 @@ export default function NewSessionPage() {
               <p className="text-xs text-slate-500">Unchecked sessions are only visible to admins</p>
             </div>
           </label>
+
+          {/* Recurring toggle */}
+          <div className="border-t border-slate-700 pt-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-600 bg-slate-700 accent-green-500"
+              />
+              <div>
+                <p className="text-sm font-medium text-slate-300">Recurring session</p>
+                <p className="text-xs text-slate-500">Automatically create repeated sessions</p>
+              </div>
+            </label>
+
+            {isRecurring && (
+              <div className="mt-4 space-y-3 rounded-xl border border-slate-700 bg-slate-700/30 p-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-300">Repeat <span className="text-red-400">*</span></label>
+                  <select name="recurrenceType" required className={inputCls} defaultValue="WEEKLY">
+                    <option value="DAILY">Daily</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="BIWEEKLY">Biweekly (every 2 weeks)</option>
+                    <option value="MONTHLY">Monthly</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-300">End date <span className="text-red-400">*</span></label>
+                  <input
+                    name="recurrenceEndDate"
+                    type="date"
+                    required
+                    className={`${inputCls} [color-scheme:dark]`}
+                  />
+                  <p className="text-xs text-slate-500">Sessions will be created up to this date (max 52)</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-3 pb-2">
@@ -127,7 +176,7 @@ export default function NewSessionPage() {
           </Link>
           <button type="submit" disabled={loading}
             className="flex-2 rounded-xl bg-green-600 py-3 text-sm font-semibold text-white hover:bg-green-500 transition-colors disabled:opacity-60">
-            {loading ? 'Creating…' : 'Create Session'}
+            {loading ? 'Creating…' : isRecurring ? 'Create Recurring Sessions' : 'Create Session'}
           </button>
         </div>
       </form>

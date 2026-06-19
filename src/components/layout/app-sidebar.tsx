@@ -29,6 +29,7 @@ import {
   Leaf,
   Footprints,
   CalendarCheck,
+  Compass,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/lib/auth'
@@ -40,6 +41,7 @@ interface AppSidebarProps {
 const navItems = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard },
   { label: 'Feed', href: '/app/feed', icon: Rss },
+  { label: 'Explore', href: '/app/explore', icon: Compass },
   { label: 'Activities', href: '/app/activities', icon: Activity },
   { label: 'Training', href: '/app/training', icon: TrendingUp },
   { label: 'Wellness', href: '/app/wellness', icon: Heart },

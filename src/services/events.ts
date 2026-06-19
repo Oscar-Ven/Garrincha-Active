@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db'
 import { awardPoints } from '@/services/points'
 import { createFeedPost } from '@/services/feed'
-import { EventType, EventStatus, PointsSourceType } from '@/generated/prisma'
+import { EventType, EventStatus, PointsSourceType, NotificationType } from '@/generated/prisma'
 import type { Event, EventRegistration } from '@/generated/prisma'
 
 export interface CreateEventInput {
@@ -27,37 +27,22 @@ export async function getEvents(options?: {
 }): Promise<Event[]> {
   const where: Record<string, unknown> = {}
 
-  if (options?.type) {
-    where.type = options.type
-  }
-
-  if (options?.status) {
-    where.status = options.status
-  }
-
-  if (options?.centerId) {
-    where.centerId = options.centerId
-  }
-
-  if (options?.upcoming) {
-    where.startDate = { gte: new Date() }
-  }
+  if (options?.type) where.type = options.type
+  if (options?.status) where.status = options.status
+  if (options?.centerId) where.centerId = options.centerId
+  if (options?.upcoming) where.startDate = { gte: new Date() }
 
   return prisma.event.findMany({
     where,
     orderBy: { startDate: 'asc' },
     include: {
       center: true,
-      _count: {
-        select: { registrations: true },
-      },
+      _count: { select: { registrations: true } },
     },
   })
 }
 
-export async function getEventById(
-  id: string
-): Promise<
+export async function getEventById(id: string): Promise<
   Event & {
     center: unknown
     registrations: EventRegistration[]
@@ -70,26 +55,15 @@ export async function getEventById(
       center: true,
       registrations: {
         include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              nickname: true,
-              avatarUrl: true,
-            },
-          },
+          user: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
         },
         orderBy: { registeredAt: 'desc' },
       },
-      _count: {
-        select: { registrations: true },
-      },
+      _count: { select: { registrations: true } },
     },
   })
 
-  if (!event) {
-    throw new Error(`Event not found: ${id}`)
-  }
+  if (!event) throw new Error(`Event not found: ${id}`)
 
   return event as Event & {
     center: unknown
@@ -100,80 +74,105 @@ export async function getEventById(
 
 export async function registerForEvent(
   userId: string,
-  eventId: string
-): Promise<EventRegistration> {
-  const event = await prisma.event.findUnique({
+  eventId: string,
+): Promise<{ reg: EventRegistration; waitlisted: boolean }> {
+  const event = await prisma.event.findUniqueOrThrow({
     where: { id: eventId },
-    include: {
-      _count: { select: { registrations: true } },
-    },
+    include: { registrations: { where: { waitlisted: false } } },
   })
 
-  if (!event) {
-    throw new Error('Event not found')
-  }
-
-  if (event.status !== EventStatus.PUBLISHED) {
-    throw new Error('Event is not open for registration')
-  }
-
-  if (event.capacity !== null && event.capacity !== undefined) {
-    const registrationCount = (event as typeof event & { _count: { registrations: number } })._count
-      .registrations
-    if (registrationCount >= event.capacity) {
-      throw new Error('Event is full')
-    }
-  }
+  if (event.status !== EventStatus.PUBLISHED) throw new Error('Event is not open for registration')
 
   const existing = await prisma.eventRegistration.findUnique({
     where: { eventId_userId: { eventId, userId } },
   })
+  if (existing) throw new Error('Already registered for this event')
 
-  if (existing) {
-    throw new Error('Already registered for this event')
-  }
+  const isFull = event.capacity !== null && event.registrations.length >= event.capacity
 
-  const registration = await prisma.eventRegistration.create({
+  const reg = await prisma.eventRegistration.create({
+    data: { eventId, userId, waitlisted: isFull },
+  })
+
+  await prisma.notification.create({
     data: {
-      eventId,
       userId,
+      type: isFull ? NotificationType.WAITLIST_PROMOTED : NotificationType.EVENT_REGISTERED,
+      title: isFull ? 'Added to waitlist' : 'Event registered',
+      body: isFull
+        ? `You're on the waitlist for ${event.title}. You'll be notified if a spot opens.`
+        : `You're registered for ${event.title}`,
+      linkUrl: `/app/events/${eventId}`,
     },
   })
 
-  await createFeedPost({
-    userId,
-    type: 'EVENT_REGISTRATION',
-    content: `Registered for ${event.title}`,
-    eventRegistrationId: registration.id,
-  })
+  if (!isFull) {
+    await createFeedPost({
+      userId,
+      type: 'EVENT_REGISTRATION',
+      content: `Registered for ${event.title}`,
+      eventRegistrationId: reg.id,
+    })
+  }
 
-  return registration
+  return { reg, waitlisted: isFull }
 }
 
-export async function markAttendance(
-  eventId: string,
-  userId: string,
-  adminId: string
-): Promise<void> {
+export async function cancelEventRegistration(userId: string, eventId: string): Promise<void> {
+  const existing = await prisma.eventRegistration.findUnique({
+    where: { eventId_userId: { eventId, userId } },
+  })
+  if (!existing) return
+
+  await prisma.eventRegistration.delete({
+    where: { eventId_userId: { eventId, userId } },
+  })
+
+  // Only promote from waitlist if the cancelled registration was confirmed (not itself waitlisted)
+  if (!existing.waitlisted) {
+    await promoteFromWaitlist(eventId)
+  }
+}
+
+export async function promoteFromWaitlist(eventId: string): Promise<void> {
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { title: true } })
+  if (!event) return
+
+  const firstWaitlisted = await prisma.eventRegistration.findFirst({
+    where: { eventId, waitlisted: true },
+    orderBy: { registeredAt: 'asc' },
+  })
+
+  if (!firstWaitlisted) return
+
+  await prisma.eventRegistration.update({
+    where: { id: firstWaitlisted.id },
+    data: { waitlisted: false },
+  })
+
+  await prisma.notification.create({
+    data: {
+      userId: firstWaitlisted.userId,
+      type: NotificationType.WAITLIST_PROMOTED,
+      title: 'Spot opened up!',
+      body: `Great news — you've been moved off the waitlist and are now registered for ${event.title}!`,
+      linkUrl: `/app/events/${eventId}`,
+    },
+  })
+}
+
+export async function markAttendance(eventId: string, userId: string, adminId: string): Promise<void> {
   const registration = await prisma.eventRegistration.findUnique({
     where: { eventId_userId: { eventId, userId } },
     include: { event: true },
   })
 
-  if (!registration) {
-    throw new Error('Registration not found')
-  }
-
-  if (registration.attended) {
-    throw new Error('Attendance already marked')
-  }
+  if (!registration) throw new Error('Registration not found')
+  if (registration.attended) throw new Error('Attendance already marked')
 
   await prisma.eventRegistration.update({
     where: { eventId_userId: { eventId, userId } },
-    data: {
-      attended: true,
-      attendedAt: new Date(),
-    },
+    data: { attended: true, attendedAt: new Date() },
   })
 
   if (registration.event.pointsReward > 0) {
@@ -197,10 +196,7 @@ export async function markAttendance(
   })
 }
 
-export async function createEvent(
-  data: CreateEventInput,
-  adminId: string
-): Promise<Event> {
+export async function createEvent(data: CreateEventInput, adminId: string): Promise<Event> {
   const event = await prisma.event.create({
     data: {
       title: data.title,
@@ -231,16 +227,9 @@ export async function createEvent(
   return event
 }
 
-export async function updateEvent(
-  id: string,
-  data: Partial<CreateEventInput>,
-  adminId: string
-): Promise<Event> {
+export async function updateEvent(id: string, data: Partial<CreateEventInput>, adminId: string): Promise<Event> {
   const existing = await prisma.event.findUnique({ where: { id } })
-
-  if (!existing) {
-    throw new Error(`Event not found: ${id}`)
-  }
+  if (!existing) throw new Error(`Event not found: ${id}`)
 
   const updated = await prisma.event.update({
     where: { id },

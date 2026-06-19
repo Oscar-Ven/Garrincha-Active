@@ -199,6 +199,59 @@ export async function getChallengeLeaderboard(
   }))
 }
 
+export async function getFriendsLeaderboard(
+  userId: string,
+  metric: LeaderboardMetric = 'points',
+): Promise<LeaderboardEntry[]> {
+  // Collect all userIds to include: the people the user follows + themselves
+  const follows = await prisma.follow.findMany({
+    where: { followerId: userId },
+    select: { followingId: true },
+  })
+  const friendIds = [userId, ...follows.map((f) => f.followingId)]
+
+  const orderByField =
+    metric === 'points'
+      ? 'totalPoints'
+      : metric === 'distance'
+      ? 'totalDistance'
+      : 'totalMinutes'
+
+  const profiles = await prisma.playerProfile.findMany({
+    where: { userId: { in: friendIds } },
+    orderBy: { [orderByField]: 'desc' },
+    select: {
+      totalPoints: true,
+      totalDistance: true,
+      totalMinutes: true,
+      level: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          nickname: true,
+          avatarUrl: true,
+          centerId: true,
+          center: { select: { id: true, name: true } },
+        },
+      },
+    },
+  })
+
+  return profiles.map((p, index) => ({
+    rank: index + 1,
+    userId: p.user.id,
+    name: p.user.name,
+    nickname: p.user.nickname,
+    avatarUrl: p.user.avatarUrl ?? null,
+    centerId: p.user.centerId ?? null,
+    centerName: p.user.center?.name ?? null,
+    points: p.totalPoints,
+    distance: p.totalDistance,
+    minutes: p.totalMinutes,
+  }))
+}
+
 export async function getPlayerRank(
   userId: string,
   metric: LeaderboardMetric = 'points',

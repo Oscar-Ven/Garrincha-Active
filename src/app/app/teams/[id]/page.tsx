@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { DirectChallengeType } from '@/generated/prisma'
-import { Users, Target, Trophy, Plus, Bell } from 'lucide-react'
+import { DirectChallengeType, NotificationType } from '@/generated/prisma'
+import { Users, Target, Plus, Bell, MessageSquare } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -52,8 +52,55 @@ async function createSquadGoal(teamId: string, formData: FormData) {
   revalidatePath(`/app/teams/${teamId}`)
 }
 
-export default async function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
+async function sendTeamMessage(teamId: string, formData: FormData) {
+  'use server'
+  const user = await getCurrentUser()
+  if (!user) redirect('/login')
+
+  const body = (formData.get('body') as string)?.trim()
+  if (!body) return
+
+  // Validate user is a member of the team
+  const membership = await prisma.teamMember.findUnique({
+    where: { teamId_userId: { teamId, userId: user.id } },
+  })
+  if (!membership) return
+
+  // Create the message
+  await prisma.teamMessage.create({
+    data: { teamId, senderId: user.id, body },
+  })
+
+  // Notify all other team members
+  const otherMembers = await prisma.teamMember.findMany({
+    where: { teamId, userId: { not: user.id } },
+    select: { userId: true },
+  })
+
+  if (otherMembers.length > 0) {
+    await prisma.notification.createMany({
+      data: otherMembers.map((m) => ({
+        userId: m.userId,
+        type: NotificationType.TEAM_MESSAGE,
+        title: 'New team message',
+        body: `${user.name}: ${body.length > 80 ? body.slice(0, 80) + '…' : body}`,
+        linkUrl: `/app/teams/${teamId}?tab=chat`,
+      })),
+    })
+  }
+
+  revalidatePath(`/app/teams/${teamId}`)
+}
+
+export default async function TeamDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ tab?: string }>
+}) {
   const { id } = await params
+  const { tab = 'overview' } = await searchParams
   const user = await getCurrentUser()
   if (!user) redirect('/login')
 
@@ -61,7 +108,17 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
     where: { id },
     include: {
       members: {
-        include: { user: { select: { id: true, name: true, nickname: true, avatarUrl: true, playerProfile: { select: { totalPoints: true, totalDistance: true } } } } },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              nickname: true,
+              avatarUrl: true,
+              playerProfile: { select: { totalPoints: true, totalDistance: true } },
+            },
+          },
+        },
         orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
       },
       center: { select: { name: true } },
@@ -74,6 +131,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         take: 5,
       },
+      messages: {
+        include: {
+          sender: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 50,
+      },
     },
   })
 
@@ -81,11 +145,10 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
 
   const myMembership = team.members.find((m) => m.userId === user.id)
   const isAdmin = myMembership?.role === 'OWNER' || myMembership?.role === 'ADMIN'
+  const isMember = !!myMembership
 
   const totalPoints = team.members.reduce((s, m) => s + (m.user.playerProfile?.totalPoints ?? 0), 0)
   const totalDistance = team.members.reduce((s, m) => s + (m.user.playerProfile?.totalDistance ?? 0), 0)
-
-  const roleOrder = { OWNER: 0, ADMIN: 1, MEMBER: 2 }
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -126,160 +189,259 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         </Card>
       </div>
 
-      {/* Announcements */}
-      {(team.announcements.length > 0 || isAdmin) && (
+      {/* Tab navigation */}
+      <div className="flex gap-1 rounded-xl bg-slate-800 border border-slate-700 p-1">
+        {(['overview', 'chat'] as const).map((t) => (
+          <Link
+            key={t}
+            href={`/app/teams/${id}?tab=${t}`}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-colors ${
+              tab === t ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {t === 'chat' && <MessageSquare className="h-3.5 w-3.5" />}
+            {t === 'overview' ? 'Overview' : 'Chat'}
+          </Link>
+        ))}
+      </div>
+
+      {tab === 'chat' ? (
+        /* ── Chat Tab ── */
         <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardHeader className="pb-3">
             <CardTitle className="text-white text-base flex items-center gap-2">
-              <Bell className="h-4 w-4 text-blue-400" /> Announcements
+              <MessageSquare className="h-4 w-4 text-blue-400" /> Team Chat
             </CardTitle>
-            {isAdmin && (
-              <Link
-                href={`/app/teams/${id}/announcements/new`}
-                className="rounded-lg bg-blue-600/20 border border-blue-600/30 px-3 py-1 text-xs font-medium text-blue-400 hover:bg-blue-600/30 transition-colors"
-              >
-                + Post
-              </Link>
-            )}
           </CardHeader>
-          <CardContent className="space-y-3">
-            {team.announcements.length === 0 ? (
-              <p className="text-slate-500 text-sm">No announcements yet.</p>
-            ) : (
-              team.announcements.map((a) => (
-                <div
-                  key={a.id}
-                  className={`rounded-xl border p-4 ${a.isPinned ? 'border-blue-600/30 bg-blue-600/10' : 'border-slate-700 bg-slate-700/30'}`}
-                >
-                  <div className="flex items-start gap-2">
-                    {a.isPinned && <span className="mt-0.5 text-xs text-blue-400">📌</span>}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white text-sm">{a.title}</p>
-                      <p className="mt-1 text-sm text-slate-300 whitespace-pre-wrap">{a.content}</p>
-                      <p className="mt-2 text-xs text-slate-500">
-                        {a.author.name} · {new Date(a.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                      </p>
+          <CardContent className="space-y-4">
+            {/* Messages list */}
+            <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+              {team.messages.length === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-8">No messages yet. Say hello!</p>
+              ) : (
+                team.messages.map((msg) => {
+                  const isMe = msg.senderId === user.id
+                  return (
+                    <div key={msg.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
+                      {/* Avatar */}
+                      <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
+                        {msg.sender.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={msg.sender.avatarUrl} alt={msg.sender.name} className="h-full w-full object-cover" />
+                        ) : (
+                          msg.sender.name[0].toUpperCase()
+                        )}
+                      </div>
+                      <div className={`max-w-[75%] flex flex-col gap-0.5 ${isMe ? 'items-end' : 'items-start'}`}>
+                        <div className={`flex items-baseline gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
+                          <span className="text-xs font-semibold text-slate-300">
+                            {isMe ? 'You' : msg.sender.name}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {new Date(msg.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                            {' · '}
+                            {new Date(msg.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                        <div
+                          className={`rounded-2xl px-3 py-2 text-sm break-words ${
+                            isMe
+                              ? 'bg-blue-600 text-white rounded-tr-sm'
+                              : 'bg-slate-700 text-slate-100 rounded-tl-sm'
+                          }`}
+                        >
+                          {msg.body}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))
+                  )
+                })
+              )}
+            </div>
+
+            {/* Send message form */}
+            {isMember ? (
+              <form action={sendTeamMessage.bind(null, id)} className="flex gap-2 border-t border-slate-700 pt-4">
+                <input
+                  name="body"
+                  placeholder="Type a message…"
+                  required
+                  autoComplete="off"
+                  className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 transition-colors shrink-0"
+                >
+                  Send
+                </button>
+              </form>
+            ) : (
+              <p className="text-slate-500 text-sm text-center border-t border-slate-700 pt-4">
+                Join the team to participate in chat.
+              </p>
             )}
           </CardContent>
         </Card>
-      )}
-
-      {/* Squad Goals */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-white text-base flex items-center gap-2">
-            <Target className="h-4 w-4 text-orange-400" /> Squad Goals
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {team.squadGoals.length === 0 ? (
-            <p className="text-slate-500 text-sm">No squad goals yet.{isAdmin && ' Create one below!'}</p>
-          ) : (
-            team.squadGoals.map((goal) => {
-              const pct = Math.min(100, (goal.currentValue / goal.targetValue) * 100)
-              const ended = new Date() > goal.endDate
-              return (
-                <div key={goal.id} className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-white text-sm font-medium">{goal.title}</p>
-                    {ended && <span className="text-xs text-slate-500">Ended</span>}
-                  </div>
-                  <div className="h-3 w-full rounded-full bg-slate-700">
+      ) : (
+        /* ── Overview Tab ── */
+        <>
+          {/* Announcements */}
+          {(team.announcements.length > 0 || isAdmin) && (
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardTitle className="text-white text-base flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-blue-400" /> Announcements
+                </CardTitle>
+                {isAdmin && (
+                  <Link
+                    href={`/app/teams/${id}/announcements/new`}
+                    className="rounded-lg bg-blue-600/20 border border-blue-600/30 px-3 py-1 text-xs font-medium text-blue-400 hover:bg-blue-600/30 transition-colors"
+                  >
+                    + Post
+                  </Link>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {team.announcements.length === 0 ? (
+                  <p className="text-slate-500 text-sm">No announcements yet.</p>
+                ) : (
+                  team.announcements.map((a) => (
                     <div
-                      className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-yellow-500' : 'bg-orange-500'}`}
-                      style={{ width: `${pct}%` }}
+                      key={a.id}
+                      className={`rounded-xl border p-4 ${a.isPinned ? 'border-blue-600/30 bg-blue-600/10' : 'border-slate-700 bg-slate-700/30'}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {a.isPinned && <span className="mt-0.5 text-xs text-blue-400">📌</span>}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-white text-sm">{a.title}</p>
+                          <p className="mt-1 text-sm text-slate-300 whitespace-pre-wrap">{a.content}</p>
+                          <p className="mt-2 text-xs text-slate-500">
+                            {a.author.name} · {new Date(a.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Squad Goals */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-white text-base flex items-center gap-2">
+                <Target className="h-4 w-4 text-orange-400" /> Squad Goals
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {team.squadGoals.length === 0 ? (
+                <p className="text-slate-500 text-sm">No squad goals yet.{isAdmin && ' Create one below!'}</p>
+              ) : (
+                team.squadGoals.map((goal) => {
+                  const pct = Math.min(100, (goal.currentValue / goal.targetValue) * 100)
+                  const ended = new Date() > goal.endDate
+                  return (
+                    <div key={goal.id} className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-white text-sm font-medium">{goal.title}</p>
+                        {ended && <span className="text-xs text-slate-500">Ended</span>}
+                      </div>
+                      <div className="h-3 w-full rounded-full bg-slate-700">
+                        <div
+                          className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-yellow-500' : 'bg-orange-500'}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>{goal.currentValue.toFixed(1)} / {goal.targetValue} {TYPE_LABELS[goal.type]}</span>
+                        <span>{pct >= 100 ? '✅ Complete!' : `${pct.toFixed(0)}%`}</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Ends {goal.endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                  )
+                })
+              )}
+
+              {/* Create goal form — admins only */}
+              {isAdmin && (
+                <form action={createSquadGoal.bind(null, id)} className="border-t border-slate-700 pt-4 space-y-3">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">New Squad Goal</p>
+                  <input
+                    name="title"
+                    placeholder="Goal title (e.g. 100km this month)"
+                    required
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-600"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      name="type"
+                      defaultValue="DISTANCE"
+                      className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-600"
+                    >
+                      <option value="DISTANCE">Distance (km)</option>
+                      <option value="ACTIVITY_COUNT">Activity Count</option>
+                      <option value="ACTIVE_MINUTES">Active Minutes</option>
+                    </select>
+                    <input
+                      name="targetValue"
+                      type="number"
+                      placeholder="Target"
+                      min={1}
+                      step={0.5}
+                      required
+                      className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-600"
                     />
                   </div>
-                  <div className="flex justify-between text-xs text-slate-400">
-                    <span>{goal.currentValue.toFixed(1)} / {goal.targetValue} {TYPE_LABELS[goal.type]}</span>
-                    <span>{pct >= 100 ? '✅ Complete!' : `${pct.toFixed(0)}%`}</span>
+                  <input
+                    name="endDate"
+                    type="date"
+                    required
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-600 [color-scheme:dark]"
+                  />
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" /> Create Goal
+                  </button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Members */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-white text-base">Members</CardTitle>
+            </CardHeader>
+            <CardContent className="divide-y divide-slate-700/50">
+              {team.members.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 py-3">
+                  <div className="h-9 w-9 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                    {m.user.name[0]}
                   </div>
-                  <p className="text-xs text-slate-500">
-                    Ends {goal.endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/app/players/${m.user.id}`} className="text-white text-sm font-medium hover:text-green-400 transition-colors">
+                      {m.user.name}
+                    </Link>
+                    <p className="text-xs text-slate-500">@{m.user.nickname}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-semibold text-yellow-400">{(m.user.playerProfile?.totalPoints ?? 0).toLocaleString()} pts</p>
+                    <p className={`text-xs font-medium ${m.role === 'OWNER' ? 'text-orange-400' : m.role === 'ADMIN' ? 'text-blue-400' : 'text-slate-500'}`}>
+                      {m.role}
+                    </p>
+                  </div>
                 </div>
-              )
-            })
-          )}
-
-          {/* Create goal form — admins only */}
-          {isAdmin && (
-            <form action={createSquadGoal.bind(null, id)} className="border-t border-slate-700 pt-4 space-y-3">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">New Squad Goal</p>
-              <input
-                name="title"
-                placeholder="Goal title (e.g. 100km this month)"
-                required
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-600"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  name="type"
-                  defaultValue="DISTANCE"
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-600"
-                >
-                  <option value="DISTANCE">Distance (km)</option>
-                  <option value="ACTIVITY_COUNT">Activity Count</option>
-                  <option value="ACTIVE_MINUTES">Active Minutes</option>
-                </select>
-                <input
-                  name="targetValue"
-                  type="number"
-                  placeholder="Target"
-                  min={1}
-                  step={0.5}
-                  required
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-600"
-                />
-              </div>
-              <input
-                name="endDate"
-                type="date"
-                required
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-600 [color-scheme:dark]"
-              />
-              <button
-                type="submit"
-                className="flex items-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 transition-colors"
-              >
-                <Plus className="h-4 w-4" /> Create Goal
-              </button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Members */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-white text-base">Members</CardTitle>
-        </CardHeader>
-        <CardContent className="divide-y divide-slate-700/50">
-          {team.members.map((m) => (
-            <div key={m.id} className="flex items-center gap-3 py-3">
-              <div className="h-9 w-9 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold text-white shrink-0">
-                {m.user.name[0]}
-              </div>
-              <div className="flex-1 min-w-0">
-                <Link href={`/app/players/${m.user.id}`} className="text-white text-sm font-medium hover:text-green-400 transition-colors">
-                  {m.user.name}
-                </Link>
-                <p className="text-xs text-slate-500">@{m.user.nickname}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-xs font-semibold text-yellow-400">{(m.user.playerProfile?.totalPoints ?? 0).toLocaleString()} pts</p>
-                <p className={`text-xs font-medium ${m.role === 'OWNER' ? 'text-orange-400' : m.role === 'ADMIN' ? 'text-blue-400' : 'text-slate-500'}`}>
-                  {m.role}
-                </p>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <Link href="/app/teams" className="text-sm text-slate-400 hover:text-white transition-colors">
         ← Back to Teams

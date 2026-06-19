@@ -2,6 +2,12 @@
   "framework": "nextjs",
   "buildCommand": "prisma generate && echo \"export * from './browser'\" > src/generated/prisma/index.ts && next build",
   "installCommand": "npm ci",
+  "crons": [
+    {
+      "path": "/api/cron/expire-points",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

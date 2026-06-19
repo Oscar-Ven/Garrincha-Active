@@ -93,6 +93,11 @@ export default async function SessionsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-white">{session.title}</p>
+                        {(session.isRecurring || session.parentSessionId) && (
+                          <span className="rounded-full border border-blue-600/40 bg-blue-600/10 px-2 py-0.5 text-xs font-medium text-blue-400">
+                            🔁 Recurring
+                          </span>
+                        )}
                         {isRegistered && (
                           <span className="rounded-full border border-green-600/40 bg-green-600/10 px-2 py-0.5 text-xs font-medium text-green-400">
                             Registered

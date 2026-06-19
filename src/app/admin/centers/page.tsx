@@ -51,6 +51,12 @@ export async function updateCenter(formData: FormData): Promise<{ error?: string
   const phone = (formData.get('phone') as string | null)?.trim() || null
   const email = (formData.get('email') as string | null)?.trim() || null
   const description = (formData.get('description') as string | null)?.trim() || null
+  const latRaw = (formData.get('latitude') as string | null)?.trim()
+  const lngRaw = (formData.get('longitude') as string | null)?.trim()
+  const radiusRaw = (formData.get('checkInRadiusM') as string | null)?.trim()
+  const latitude = latRaw ? parseFloat(latRaw) : null
+  const longitude = lngRaw ? parseFloat(lngRaw) : null
+  const checkInRadiusM = radiusRaw ? parseInt(radiusRaw, 10) : 150
 
   if (!name) return { error: 'Center name is required.' }
 
@@ -59,7 +65,7 @@ export async function updateCenter(formData: FormData): Promise<{ error?: string
 
   await prisma.center.update({
     where: { id },
-    data: { name, city, address, phone, email, description },
+    data: { name, city, address, phone, email, description, latitude, longitude, checkInRadiusM },
   })
 
   revalidatePath('/admin/centers')
@@ -81,7 +87,19 @@ export async function toggleCenterActive(id: string, isActive: boolean): Promise
 async function getCenters() {
   return prisma.center.findMany({
     orderBy: { createdAt: 'desc' },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      address: true,
+      phone: true,
+      email: true,
+      description: true,
+      isActive: true,
+      createdAt: true,
+      latitude: true,
+      longitude: true,
+      checkInRadiusM: true,
       _count: { select: { players: true } },
     },
   })
@@ -107,6 +125,9 @@ export default async function CentersPage() {
     isActive: c.isActive,
     playerCount: c._count.players,
     createdAt: c.createdAt.toISOString(),
+    latitude: c.latitude,
+    longitude: c.longitude,
+    checkInRadiusM: c.checkInRadiusM,
   }))
 
   return (

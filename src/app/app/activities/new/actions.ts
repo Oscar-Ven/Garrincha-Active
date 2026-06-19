@@ -6,6 +6,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createActivity } from '@/services/activities'
 import { uploadActivityMedia } from '@/services/upload-service'
 import { ActivityType, ActivityVisibility } from '@/generated/prisma'
+import { prisma } from '@/lib/db'
+import { syncHashtags } from '@/lib/hashtags'
 
 const optionalInt = (max?: number) =>
   z.preprocess(
@@ -110,6 +112,14 @@ export async function createActivityAction(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
     return { success: false, fieldErrors: {}, serverError: message }
+  }
+
+  // Sync hashtags from title + description (non-blocking)
+  try {
+    const hashtagText = `${activity.title} ${activity.description ?? ''}`
+    await syncHashtags(prisma, 'activity', activity.id, hashtagText)
+  } catch (hashtagErr) {
+    console.warn('[createActivity] Failed to sync hashtags:', hashtagErr)
   }
 
   // Upload photos (non-blocking — activity is already created)

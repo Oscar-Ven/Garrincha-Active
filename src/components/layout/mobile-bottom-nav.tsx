@@ -2,15 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Rss, Activity, CalendarCheck, User } from 'lucide-react'
+import { Home, Rss, Activity, Compass, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const tabs = [
-  { label: 'Home',     href: '/app',               icon: Home,          exact: true },
-  { label: 'Feed',     href: '/app/feed',           icon: Rss,           exact: false },
-  { label: 'Log',      href: '/app/activities/new', icon: Activity,      exact: false, fab: true },
-  { label: 'Sessions', href: '/app/sessions',       icon: CalendarCheck, exact: false },
-  { label: 'Profile',  href: '/app/profile',        icon: User,          exact: false },
+  { label: 'Home',    href: '/app',               icon: Home,    exact: true },
+  { label: 'Feed',    href: '/app/feed',           icon: Rss,     exact: false },
+  { label: 'Log',     href: '/app/activities/new', icon: Activity, exact: false, fab: true },
+  { label: 'Explore', href: '/app/explore',        icon: Compass, exact: false },
+  { label: 'Profile', href: '/app/profile',        icon: User,    exact: false },
 ]
 
 export default function MobileBottomNav() {

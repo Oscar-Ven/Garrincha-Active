@@ -145,6 +145,9 @@ enum NotificationType {
   ANNOUNCEMENT
   GEAR_ALERT
   SESSION_REMINDER
+  WAITLIST_PROMOTED
+  REFERRAL_REWARD
+  TEAM_MESSAGE
 }
 
 enum GearType {
@@ -156,6 +159,7 @@ enum GearType {
 
 enum AttendanceStatus {
   REGISTERED
+  WAITLISTED
   ATTENDED
   MISSED
   CANCELLED
@@ -248,6 +252,11 @@ model User {
   teamAnnouncements     TeamAnnouncement[]     @relation("AnnouncementAuthor")
   sessionsCreated       CenterSession[]        @relation("SessionCreator")
   sessionParticipations SessionParticipant[]
+  referralCode          String?                @unique
+  referralsMade         Referral[]             @relation("Referrer")
+  referredBy            Referral?              @relation("Referred")
+  oauthAccounts         OAuthAccount[]
+  teamMessagesSent      TeamMessage[]          @relation("TeamMessageSender")
 
   @@map("users")
 }
@@ -287,11 +296,14 @@ model Center {
   address     String?
   phone       String?
   email       String?
-  description String?
-  logoUrl     String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description     String?
+  logoUrl         String?
+  isActive        Boolean  @default(true)
+  latitude        Float?
+  longitude       Float?
+  checkInRadiusM  Int      @default(150)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   players    User[]
   rewards    Reward[]
@@ -340,6 +352,8 @@ model Activity {
 
   gearId          String?
   gearItem        Gear?                @relation("ActivityGear", fields: [gearId], references: [id])
+  stravaActivityId String?             @unique
+  hashtags        ActivityHashtag[]
   routePoints     ActivityRoutePoint[]
   media           ActivityMedia[]
   feedPost        FeedPost?
@@ -507,6 +521,7 @@ model PointsLedger {
   sourceId   String?
   points     Int
   reason     String
+  expiresAt  DateTime?
   createdAt  DateTime         @default(now())
 
   @@map("points_ledger")
@@ -661,6 +676,7 @@ model FeedPost {
   comments  FeedComment[]
   reactions FeedReaction[]
   reports   Report[]
+  hashtags  FeedPostHashtag[]
 
   @@map("feed_posts")
 }
@@ -738,6 +754,7 @@ model EventRegistration {
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   attended     Boolean   @default(false)
+  waitlisted   Boolean   @default(false)
   attendedAt   DateTime?
   registeredAt DateTime  @default(now())
 
@@ -763,6 +780,7 @@ model Team {
   members       TeamMember[]
   squadGoals    SquadGoal[]
   announcements TeamAnnouncement[]
+  messages      TeamMessage[]
 
   @@map("teams")
 }
@@ -1029,6 +1047,7 @@ model Gear {
   purchasedAt      DateTime?
   notes            String?
   activities       Activity[] @relation("ActivityGear")
+  maintenanceLogs  GearMaintenance[]
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
@@ -1118,8 +1137,14 @@ model CenterSession {
   createdById  String
   createdBy    User                 @relation("SessionCreator", fields: [createdById], references: [id])
   participants SessionParticipant[]
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  isRecurring       Boolean        @default(false)
+  recurrenceType    String?
+  recurrenceEndDate DateTime?
+  parentSessionId   String?
+  parentSession     CenterSession? @relation("RecurringSessions", fields: [parentSessionId], references: [id])
+  childSessions     CenterSession[] @relation("RecurringSessions")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@map("center_sessions")
 }
@@ -1137,4 +1162,99 @@ model SessionParticipant {
 
   @@unique([sessionId, userId])
   @@map("session_participants")
+}
+
+// ─── Referrals ────────────────────────────────────────────────────────────────
+
+model Referral {
+  id            String   @id @default(cuid())
+  referrerId    String
+  referrer      User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredId    String   @unique
+  referred      User     @relation("Referred", fields: [referredId], references: [id], onDelete: Cascade)
+  pointsAwarded Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@map("referrals")
+}
+
+// ─── OAuth Accounts ───────────────────────────────────────────────────────────
+
+model OAuthAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  scope             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@map("oauth_accounts")
+}
+
+// ─── Team Messages ────────────────────────────────────────────────────────────
+
+model TeamMessage {
+  id        String   @id @default(cuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation("TeamMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@map("team_messages")
+}
+
+// ─── Gear Maintenance Log ─────────────────────────────────────────────────────
+
+model GearMaintenance {
+  id           String   @id @default(cuid())
+  gearId       String
+  gear         Gear     @relation(fields: [gearId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  costAmount   Float?
+  distanceAtKm Float?
+  performedAt  DateTime
+  createdAt    DateTime @default(now())
+
+  @@map("gear_maintenance_logs")
+}
+
+// ─── Hashtags ─────────────────────────────────────────────────────────────────
+
+model Hashtag {
+  id         String            @id @default(cuid())
+  name       String            @unique
+  createdAt  DateTime          @default(now())
+  activities ActivityHashtag[]
+  feedPosts  FeedPostHashtag[]
+
+  @@map("hashtags")
+}
+
+model ActivityHashtag {
+  activityId String
+  hashtagId  String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  hashtag    Hashtag  @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, hashtagId])
+  @@map("activity_hashtags")
+}
+
+model FeedPostHashtag {
+  feedPostId String
+  hashtagId  String
+  feedPost   FeedPost @relation(fields: [feedPostId], references: [id], onDelete: Cascade)
+  hashtag    Hashtag  @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@id([feedPostId, hashtagId])
+  @@map("feed_post_hashtags")
 }

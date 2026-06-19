@@ -5,9 +5,10 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import { hashPassword, SESSION_COOKIE_NAME, createSession } from '@/lib/auth'
-import { Role } from '@/generated/prisma'
+import { NotificationType, PointsSourceType, Role } from '@/generated/prisma'
 import { randomBytes } from 'crypto'
 import { sendVerificationEmail } from '@/services/email-service'
+import { awardPoints } from '@/services/points'
 
 const FAVORITE_SPORTS = [
   'Football',
@@ -53,6 +54,7 @@ const RegisterSchema = z
       })
       .optional()
       .or(z.literal('')),
+    referralCode: z.string().optional().or(z.literal('')),
     password: z
       .string()
       .min(8, 'Password must be at least 8 characters')
@@ -81,6 +83,7 @@ export async function registerAction(
     dateOfBirth: (formData.get('dateOfBirth') as string) ?? '',
     centerId: (formData.get('centerId') as string) ?? '',
     favoriteSport: (formData.get('favoriteSport') as string) ?? '',
+    referralCode: (formData.get('referralCode') as string) ?? '',
     // Do not echo passwords back
   }
 
@@ -88,6 +91,7 @@ export async function registerAction(
     ...rawValues,
     password: (formData.get('password') as string) ?? '',
     confirmPassword: (formData.get('confirmPassword') as string) ?? '',
+    referralCode: (formData.get('referralCode') as string) ?? '',
   })
 
   if (!parsed.success) {
@@ -109,6 +113,7 @@ export async function registerAction(
     dateOfBirth,
     centerId,
     favoriteSport,
+    referralCode,
     password,
   } = parsed.data
 
@@ -179,6 +184,71 @@ export async function registerAction(
       },
     })
     userId = user.id
+
+    // Generate unique referral code for this new user
+    try {
+      const base = user.nickname.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)
+      const generatedReferralCode = base + randomBytes(3).toString('hex')
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { referralCode: generatedReferralCode },
+      })
+    } catch (refCodeErr) {
+      console.warn('[register] Failed to generate referral code:', refCodeErr)
+    }
+
+    // Handle incoming referral code
+    if (referralCode && referralCode.trim() !== '') {
+      try {
+        const referrer = await prisma.user.findUnique({
+          where: { referralCode: referralCode.trim() },
+          select: { id: true, name: true },
+        })
+        if (referrer && referrer.id !== user.id) {
+          // Check no duplicate referral exists for this user
+          const existingReferral = await prisma.referral.findUnique({
+            where: { referredId: user.id },
+          })
+          if (!existingReferral) {
+            await prisma.referral.create({
+              data: {
+                referrerId: referrer.id,
+                referredId: user.id,
+                pointsAwarded: true,
+              },
+            })
+            // Award 100 pts to referrer
+            await awardPoints(
+              referrer.id,
+              100,
+              PointsSourceType.REFERRAL,
+              user.id,
+              'Referral bonus — friend joined',
+            )
+            // Award 50 pts to new user
+            await awardPoints(
+              user.id,
+              50,
+              PointsSourceType.REFERRAL,
+              referrer.id,
+              'Welcome bonus — joined via referral',
+            )
+            // Notify referrer
+            await prisma.notification.create({
+              data: {
+                userId: referrer.id,
+                type: NotificationType.REFERRAL_REWARD,
+                title: 'Referral Reward',
+                body: `${user.name} joined using your referral link — you earned 100 pts!`,
+                linkUrl: '/app/referrals',
+              },
+            })
+          }
+        }
+      } catch (referralErr) {
+        console.warn('[register] Failed to process referral:', referralErr)
+      }
+    }
 
     // Send email verification (non-blocking — don't fail registration if email fails)
     try {

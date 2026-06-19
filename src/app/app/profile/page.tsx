@@ -6,8 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ActivityCard } from '@/components/player/activity-card'
 import { formatDistance, formatDuration, formatDate } from '@/lib/utils'
 import { Settings, Award, Activity, Clock, MapPin } from 'lucide-react'
+import StravaSection from './StravaSection'
 
-export default async function ProfilePage() {
+interface ProfilePageProps {
+  searchParams: Promise<{ strava?: string; error?: string; athlete?: string }>
+}
+
+export default async function ProfilePage({ searchParams }: ProfilePageProps) {
+  const { strava, error: queryError, athlete: athleteName } = await searchParams
   const session = await getCurrentUser()
   if (!session) redirect('/login')
 
@@ -34,6 +40,12 @@ export default async function ProfilePage() {
     where: { userId: session.id },
     orderBy: { createdAt: 'desc' },
     take: 10,
+  })
+
+  // Strava connection
+  const stravaAccount = await prisma.oAuthAccount.findFirst({
+    where: { userId: session.id, provider: 'strava' },
+    select: { id: true, providerAccountId: true },
   })
 
   // 90-day tier calculation
@@ -286,6 +298,18 @@ export default async function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Connected Apps */}
+      <StravaSection
+        stravaAccountId={stravaAccount?.id ?? null}
+        athleteName={
+          strava === 'connected' && athleteName
+            ? decodeURIComponent(athleteName)
+            : null
+        }
+        justConnected={strava === 'connected'}
+        connectError={queryError ? decodeURIComponent(queryError) : null}
+      />
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Recent Activities */}
