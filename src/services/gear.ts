@@ -70,8 +70,36 @@ export async function deleteGear(gearId: string, userId: string) {
 }
 
 export async function updateGearDistance(gearId: string, additionalKm: number) {
-  return prisma.gear.update({
+  const gear = await prisma.gear.findUnique({
     where: { id: gearId },
-    data: { totalDistanceKm: { increment: additionalKm } },
+    select: { userId: true, totalDistanceKm: true, alertThresholdKm: true },
   })
+  if (!gear) return null
+
+  const prevTotal = gear.totalDistanceKm ?? 0
+  const newTotal = prevTotal + additionalKm
+
+  const updated = await prisma.gear.update({
+    where: { id: gearId },
+    data: { totalDistanceKm: newTotal },
+  })
+
+  // Fire GEAR_ALERT notification when threshold is crossed for the first time
+  if (
+    gear.alertThresholdKm != null &&
+    prevTotal < gear.alertThresholdKm &&
+    newTotal >= gear.alertThresholdKm
+  ) {
+    await prisma.notification.create({
+      data: {
+        userId: gear.userId,
+        type: 'GEAR_ALERT',
+        title: 'Gear maintenance reminder',
+        body: `Your gear has reached ${gear.alertThresholdKm.toFixed(0)} km. Time for a check-up!`,
+        linkUrl: `/app/gear`,
+      },
+    })
+  }
+
+  return updated
 }

@@ -180,6 +180,19 @@ enum DirectChallengeStatus {
   CANCELLED
 }
 
+enum GoalType {
+  DISTANCE
+  DURATION
+  ACTIVITY_COUNT
+  POINTS
+}
+
+enum GoalPeriod {
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
 enum Level {
   BRONZE
   SILVER
@@ -257,6 +270,7 @@ model User {
   referredBy            Referral?              @relation("Referred")
   oauthAccounts         OAuthAccount[]
   teamMessagesSent      TeamMessage[]          @relation("TeamMessageSender")
+  goals                 Goal[]
 
   @@map("users")
 }
@@ -1225,6 +1239,25 @@ model GearMaintenance {
   createdAt    DateTime @default(now())
 
   @@map("gear_maintenance_logs")
+}
+
+// ─── Personal Goals ───────────────────────────────────────────────────────────
+
+model Goal {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  type        GoalType
+  period      GoalPeriod
+  targetValue Float
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("goals")
 }
 
 // ─── Hashtags ─────────────────────────────────────────────────────────────────

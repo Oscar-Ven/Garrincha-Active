@@ -9,6 +9,7 @@ import { cn, activityTypeLabel, activityTypeIcon, formatDate, formatDateTime, fo
 import { ActivityStatus, ActivityType } from '@/generated/prisma'
 import { formatDistanceToNow } from 'date-fns'
 import { ActivityMap } from '@/components/maps/ActivityMap'
+import { KudosButton } from './KudosButton'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -144,6 +145,15 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
   const comments = activity.feedPost?.comments ?? []
   const kudosCount = activity.feedPost?._count.reactions ?? 0
 
+  let userHasKudos = false
+  if (currentUser && activity.feedPost?.id) {
+    const reaction = await prisma.feedReaction.findFirst({
+      where: { postId: activity.feedPost.id, userId: currentUser.id },
+      select: { id: true },
+    })
+    userHasKudos = reaction !== null
+  }
+
   // Build stats list
   const stats: Array<{ icon: React.ReactNode; label: string; value: string; subValue?: string }> = [
     { icon: <Icon d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" className="h-4 w-4" />, label: 'Duration', value: formatDuration(activity.durationMinutes) },
@@ -272,10 +282,21 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
           <p className="mt-3 text-sm leading-relaxed text-slate-300">{activity.description}</p>
         )}
 
-        <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
-          {kudosCount > 0 && <span>❤️ {kudosCount} kudos</span>}
-          {comments.length > 0 && <span>💬 {comments.length} comments</span>}
-        </div>
+        {(activity.feedPost || comments.length > 0) && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {activity.feedPost && (
+              <KudosButton
+                postId={activity.feedPost.id}
+                initialCount={kudosCount}
+                initiallyLiked={userHasKudos}
+                currentUserId={currentUser?.id}
+              />
+            )}
+            {comments.length > 0 && (
+              <span className="text-xs text-slate-500">💬 {comments.length} comments</span>
+            )}
+          </div>
+        )}
 
         {isOwner && (
           <div className="mt-4 border-t border-slate-700 pt-4">

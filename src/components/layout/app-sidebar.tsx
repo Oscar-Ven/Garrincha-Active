@@ -30,6 +30,8 @@ import {
   Footprints,
   CalendarCheck,
   Compass,
+  Target,
+  Award,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/lib/auth'
@@ -56,6 +58,8 @@ const navItems = [
   { label: 'Events', href: '/app/events', icon: Calendar },
   { label: 'Sessions', href: '/app/sessions', icon: CalendarCheck },
   { label: 'Gear', href: '/app/gear', icon: Footprints },
+  { label: 'Goals', href: '/app/goals', icon: Target },
+  { label: 'Badges', href: '/app/badges', icon: Award },
   { label: 'Teams', href: '/app/teams', icon: Users },
   { label: 'Notifications', href: '/app/notifications', icon: Bell },
   { label: 'Settings', href: '/app/settings', icon: Settings },
