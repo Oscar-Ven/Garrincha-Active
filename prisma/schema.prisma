@@ -1,0 +1,1140 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  PLAYER
+  CENTER_ADMIN
+  PLATFORM_ADMIN
+  SPONSOR_ADMIN
+  OWNER
+}
+
+enum ActivityType {
+  RUN
+  WALK
+  CYCLING
+  FOOTBALL_TRAINING
+  FOOTBALL_MATCH
+  FITNESS
+  CUSTOM
+}
+
+enum ActivityVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+enum ActivityStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+  REJECTED
+}
+
+enum PointsSourceType {
+  ACTIVITY
+  CHALLENGE_COMPLETION
+  EVENT_ATTENDANCE
+  BADGE_AWARD
+  ADMIN_BONUS
+  REDEMPTION_DEBIT
+  REFERRAL
+  CUSTOM
+  VENUE_CHECK_IN
+  SESSION_ATTENDANCE
+}
+
+enum RewardCategory {
+  DISCOUNT
+  MERCHANDISE
+  FREE_SESSION
+  FOOD_DRINK
+  TOURNAMENT_ENTRY
+  SPONSOR_VOUCHER
+  VIP_ACCESS
+}
+
+enum RedemptionStatus {
+  PENDING
+  USED
+  CANCELLED
+  EXPIRED
+}
+
+enum ChallengeType {
+  DISTANCE
+  ACTIVE_MINUTES
+  ACTIVITY_COUNT
+  FOOTBALL_TRAINING_ATTENDANCE
+  MATCH_COUNT
+  POINTS
+  CENTER_VS_CENTER
+  TEAM
+  STREAK
+  SEGMENT_EFFORTS
+}
+
+enum EventType {
+  TRAINING_SESSION
+  TOURNAMENT
+  LEAGUE
+  CAMP
+  COMMUNITY_EVENT
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum FeedPostType {
+  ACTIVITY
+  BADGE
+  CHALLENGE_COMPLETION
+  REWARD_REDEMPTION
+  EVENT_REGISTRATION
+  TEAM_JOIN
+  PERSONAL_RECORD
+  CUSTOM
+}
+
+enum ModerationStatus {
+  VISIBLE
+  HIDDEN
+  UNDER_REVIEW
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum NotificationType {
+  BADGE_AWARDED
+  CHALLENGE_COMPLETED
+  REWARD_REDEEMED
+  EVENT_REGISTERED
+  NEW_FOLLOWER
+  ACTIVITY_LIKED
+  COMMENT_RECEIVED
+  ADMIN_MESSAGE
+  POINTS_RECEIVED
+  PERSONAL_RECORD
+  SEGMENT_RECORD
+  DIRECT_CHALLENGE_RECEIVED
+  DIRECT_CHALLENGE_ACCEPTED
+  AUCTION_OUTBID
+  AUCTION_WON
+  STREAK_SHIELD_USED
+  TIER_UPGRADED
+  DIRECT_MESSAGE
+  VENUE_CHECK_IN
+  TEAMMATE_TAGGED
+  ANNOUNCEMENT
+  GEAR_ALERT
+  SESSION_REMINDER
+}
+
+enum GearType {
+  SHOES
+  BIKE
+  WETSUIT
+  OTHER
+}
+
+enum AttendanceStatus {
+  REGISTERED
+  ATTENDED
+  MISSED
+  CANCELLED
+}
+
+enum DirectChallengeType {
+  DISTANCE
+  ACTIVITY_COUNT
+  ACTIVE_MINUTES
+}
+
+enum DirectChallengeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum Level {
+  BRONZE
+  SILVER
+  GOLD
+  ELITE
+}
+
+// ─── Core User ───────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  nickname     String    @unique
+  phone        String?
+  dateOfBirth  DateTime?
+  passwordHash String
+  role         Role      @default(PLAYER)
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+
+  // Verification & password reset
+  emailVerified          DateTime?
+  emailVerifyToken       String?   @unique
+  phoneVerified          DateTime?
+  phoneOtp               String?
+  phoneOtpExpires        DateTime?
+  resetPasswordToken     String?   @unique
+  resetPasswordExpires   DateTime?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  centerId String?
+  center   Center? @relation(fields: [centerId], references: [id])
+
+  playerProfile         PlayerProfile?
+  activities            Activity[]
+  pointsLedger          PointsLedger[]
+  rewardRedemptions     RewardRedemption[]
+  userBadges            UserBadge[]
+  challengeParticipants ChallengeParticipant[]
+  feedPosts             FeedPost[]
+  feedComments          FeedComment[]
+  feedReactions         FeedReaction[]
+  followers             Follow[]               @relation("following")
+  following             Follow[]               @relation("follower")
+  eventRegistrations    EventRegistration[]
+  teamMemberships       TeamMember[]
+  notifications         Notification[]
+  reports               Report[]               @relation("reporter")
+  reportedPosts         Report[]               @relation("reported")
+  adminAuditLogs        AdminAuditLog[]
+  segmentEfforts        SegmentEffort[]
+  personalRecords       PersonalRecord[]
+  createdSegments       Segment[]              @relation("SegmentCreator")
+  createdRoutes         Route[]                @relation("RouteCreator")
+  savedRoutes           SavedRoute[]
+  challengesSent        DirectChallenge[]      @relation("ChallengerDirect")
+  challengesReceived    DirectChallenge[]      @relation("ChallengeeDirect")
+  challengesWon         DirectChallenge[]      @relation("WinnerDirect")
+  auctionBids           AuctionBid[]
+  auctionsWon           RewardAuction[]        @relation("AuctionWinner")
+  liveSessions          LiveTrackingSession[]
+  gear                  Gear[]
+  checkIns              VenueCheckIn[]
+  createdQRCodes        CenterQR[]             @relation("QRCreator")
+  activityTagsGiven     ActivityTag[]          @relation("ActivityTagger")
+  activityTagsReceived  ActivityTag[]          @relation("ActivityTagged")
+  teamAnnouncements     TeamAnnouncement[]     @relation("AnnouncementAuthor")
+  sessionsCreated       CenterSession[]        @relation("SessionCreator")
+  sessionParticipations SessionParticipant[]
+
+  @@map("users")
+}
+
+model PlayerProfile {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favoriteSport   String?
+  bio             String?
+  totalPoints     Int       @default(0)
+  lifetimePoints  Int       @default(0)
+  level           Level     @default(BRONZE)
+  totalDistance   Float     @default(0)
+  totalMinutes    Int       @default(0)
+  totalActivities Int       @default(0)
+  streakDays        Int       @default(0)
+  longestStreak     Int       @default(0)
+  lastActivityAt    DateTime?
+  lastStreakDate    DateTime?
+  streakShields     Int       @default(0)
+  carbonSavedKg     Float     @default(0)
+  wellnessScore     Float?
+  trainingLoadScore Float?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("player_profiles")
+}
+
+// ─── Centers ─────────────────────────────────────────────────────────────────
+
+model Center {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  city        String?
+  address     String?
+  phone       String?
+  email       String?
+  description String?
+  logoUrl     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  players    User[]
+  rewards    Reward[]
+  events     Event[]
+  challenges Challenge[]
+  segments   Segment[]
+  routes     Route[]
+  teams      Team[]
+  qrCodes    CenterQR[]
+  checkIns   VenueCheckIn[]
+  sessions   CenterSession[]
+
+  @@map("centers")
+}
+
+// ─── Activities ───────────────────────────────────────────────────────────────
+
+model Activity {
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  type            ActivityType
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationMinutes Int
+  distanceKm      Float?
+  paceMinPerKm    Float?
+  speedKmH        Float?
+  elevationGainM  Float?
+  caloriesBurned  Int?
+  effortLevel     Int?               // 1-10 perceived effort
+  heartRateAvg    Int?
+  heartRateMax    Int?
+  cadence         Int?               // rpm / spm
+  powerWatts      Int?               // average watts
+  temperature     Float?             // celsius
+  description     String?
+  gear            String?
+  visibility      ActivityVisibility @default(PUBLIC)
+  status          ActivityStatus     @default(APPROVED)
+  pointsEarned    Int                @default(0)
+  flagReason      String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  gearId          String?
+  gearItem        Gear?                @relation("ActivityGear", fields: [gearId], references: [id])
+  routePoints     ActivityRoutePoint[]
+  media           ActivityMedia[]
+  feedPost        FeedPost?
+  splits          ActivitySplit[]
+  segmentEfforts  SegmentEffort[]
+  personalRecords PersonalRecord[]
+  liveSession     LiveTrackingSession?
+  tags            ActivityTag[]
+
+  @@map("activities")
+}
+
+model ActivityRoutePoint {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  latitude   Float
+  longitude  Float
+  altitude   Float?
+  speed      Float?
+  heartRate  Float?
+  cadence    Int?
+  timestamp  DateTime
+  sequence   Int
+
+  @@map("activity_route_points")
+}
+
+model ActivityMedia {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  url        String
+  type       String   @default("IMAGE")
+  createdAt  DateTime @default(now())
+
+  @@map("activity_media")
+}
+
+model ActivitySplit {
+  id             String   @id @default(cuid())
+  activityId     String
+  activity       Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  splitNumber    Int
+  distanceKm     Float
+  elapsedSecs    Int
+  paceSecPerKm   Int
+  elevationGainM Float?
+
+  @@unique([activityId, splitNumber])
+  @@map("activity_splits")
+}
+
+// ─── Segments ────────────────────────────────────────────────────────────────
+
+model Segment {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  type        ActivityType
+  distanceKm  Float
+  elevationM  Float?
+  difficulty  String?
+  centerId    String?
+  center      Center?       @relation(fields: [centerId], references: [id])
+  createdById String
+  createdBy   User          @relation("SegmentCreator", fields: [createdById], references: [id])
+  isActive    Boolean       @default(true)
+  efforts     SegmentEffort[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("segments")
+}
+
+model SegmentEffort {
+  id          String    @id @default(cuid())
+  segmentId   String
+  segment     Segment   @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityId  String?
+  activity    Activity? @relation(fields: [activityId], references: [id])
+  elapsedSecs Int
+  rank        Int?
+  recordedAt  DateTime  @default(now())
+
+  @@map("segment_efforts")
+}
+
+// ─── Routes ──────────────────────────────────────────────────────────────────
+
+model Route {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  type        ActivityType
+  distanceKm  Float
+  elevationM  Float?
+  difficulty  String?
+  centerId    String?
+  center      Center?      @relation(fields: [centerId], references: [id])
+  createdById String
+  createdBy   User         @relation("RouteCreator", fields: [createdById], references: [id])
+  isPublic    Boolean      @default(true)
+  points      RoutePoint[]
+  savedBy     SavedRoute[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("routes")
+}
+
+model RoutePoint {
+  id       String @id @default(cuid())
+  routeId  String
+  route    Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  sequence Int
+  lat      Float
+  lng      Float
+  elevM    Float?
+
+  @@unique([routeId, sequence])
+  @@map("route_points")
+}
+
+model SavedRoute {
+  id      String   @id @default(cuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routeId String
+  route   Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  savedAt DateTime @default(now())
+
+  @@unique([userId, routeId])
+  @@map("saved_routes")
+}
+
+// ─── Personal Records ─────────────────────────────────────────────────────────
+
+model PersonalRecord {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String
+  value      Float
+  activityId String?
+  activity   Activity? @relation(fields: [activityId], references: [id])
+  recordedAt DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  feedPost   FeedPost?
+
+  @@unique([userId, type])
+  @@map("personal_records")
+}
+
+// ─── Points Ledger ────────────────────────────────────────────────────────────
+
+model PointsLedger {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceType PointsSourceType
+  sourceId   String?
+  points     Int
+  reason     String
+  createdAt  DateTime         @default(now())
+
+  @@map("points_ledger")
+}
+
+// ─── Rewards ─────────────────────────────────────────────────────────────────
+
+model Reward {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  imageUrl    String?
+  pointsCost  Int
+  stock       Int            @default(-1)
+  category    RewardCategory
+  isActive    Boolean        @default(true)
+  expiresAt   DateTime?
+  centerId    String?
+  center      Center?        @relation(fields: [centerId], references: [id])
+  sponsorId   String?
+  sponsor     Sponsor?       @relation(fields: [sponsorId], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  redemptions RewardRedemption[]
+  auctions    RewardAuction[]
+
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rewardId       String
+  reward         Reward           @relation(fields: [rewardId], references: [id])
+  pointsSpent    Int
+  redemptionCode String           @unique @default(cuid())
+  status         RedemptionStatus @default(PENDING)
+  usedAt         DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  feedPost FeedPost?
+
+  @@map("reward_redemptions")
+}
+
+// ─── Badges ───────────────────────────────────────────────────────────────────
+
+model Badge {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  name        String
+  description String
+  iconUrl     String?
+  isAuto      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  userBadges UserBadge[]
+  challenges Challenge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+  awardedAt DateTime @default(now())
+
+  feedPost FeedPost?
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+// ─── Challenges ───────────────────────────────────────────────────────────────
+
+model Challenge {
+  id           String        @id @default(cuid())
+  title        String
+  description  String
+  rules        String?
+  type         ChallengeType
+  startDate    DateTime
+  endDate      DateTime
+  targetValue  Float
+  pointsReward Int
+  badgeId      String?
+  badge        Badge?        @relation(fields: [badgeId], references: [id])
+  centerId     String?
+  center       Center?       @relation(fields: [centerId], references: [id])
+  sponsorId    String?
+  sponsor      Sponsor?      @relation(fields: [sponsorId], references: [id])
+  isActive     Boolean       @default(true)
+  imageUrl     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  participants ChallengeParticipant[]
+
+  @@map("challenges")
+}
+
+model ChallengeParticipant {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  progress    Float     @default(0)
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  joinedAt    DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  feedPost FeedPost?
+
+  @@unique([challengeId, userId])
+  @@map("challenge_participants")
+}
+
+// ─── Social Feed ──────────────────────────────────────────────────────────────
+
+model FeedPost {
+  id                     String             @id @default(cuid())
+  userId                 String
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type                   FeedPostType
+  content                String?
+  imageUrl               String?
+  visibility             ActivityVisibility @default(PUBLIC)
+  moderationStatus       ModerationStatus   @default(VISIBLE)
+  activityId             String?            @unique
+  activity               Activity?          @relation(fields: [activityId], references: [id])
+  userBadgeId            String?            @unique
+  userBadge              UserBadge?         @relation(fields: [userBadgeId], references: [id])
+  challengeParticipantId String?            @unique
+  challengeParticipant   ChallengeParticipant? @relation(fields: [challengeParticipantId], references: [id])
+  rewardRedemptionId     String?            @unique
+  rewardRedemption       RewardRedemption?  @relation(fields: [rewardRedemptionId], references: [id])
+  eventRegistrationId    String?            @unique
+  eventRegistration      EventRegistration? @relation(fields: [eventRegistrationId], references: [id])
+  personalRecordId       String?            @unique
+  personalRecord         PersonalRecord?    @relation(fields: [personalRecordId], references: [id])
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  comments  FeedComment[]
+  reactions FeedReaction[]
+  reports   Report[]
+
+  @@map("feed_posts")
+}
+
+model FeedComment {
+  id               String           @id @default(cuid())
+  postId           String
+  post             FeedPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content          String
+  moderationStatus ModerationStatus @default(VISIBLE)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@map("feed_comments")
+}
+
+model FeedReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @default("KUDOS")
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@map("feed_reactions")
+}
+
+// ─── Social Graph ─────────────────────────────────────────────────────────────
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+model Event {
+  id           String      @id @default(cuid())
+  title        String
+  description  String
+  type         EventType
+  status       EventStatus @default(PUBLISHED)
+  centerId     String?
+  center       Center?     @relation(fields: [centerId], references: [id])
+  location     String?
+  startDate    DateTime
+  endDate      DateTime
+  capacity     Int?
+  pointsReward Int         @default(0)
+  imageUrl     String?
+  isTournament Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  registrations EventRegistration[]
+
+  @@map("events")
+}
+
+model EventRegistration {
+  id           String    @id @default(cuid())
+  eventId      String
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attended     Boolean   @default(false)
+  attendedAt   DateTime?
+  registeredAt DateTime  @default(now())
+
+  feedPost FeedPost?
+
+  @@unique([eventId, userId])
+  @@map("event_registrations")
+}
+
+// ─── Teams / Clubs ────────────────────────────────────────────────────────────
+
+model Team {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  imageUrl    String?
+  centerId    String?
+  center      Center?    @relation(fields: [centerId], references: [id])
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  members       TeamMember[]
+  squadGoals    SquadGoal[]
+  announcements TeamAnnouncement[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     TeamRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+// ─── Sponsors ─────────────────────────────────────────────────────────────────
+
+model Sponsor {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  logoUrl      String?
+  website      String?
+  contactEmail String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rewards    Reward[]
+  challenges Challenge[]
+  campaigns  SponsorCampaign[]
+
+  @@map("sponsors")
+}
+
+model SponsorCampaign {
+  id          String   @id @default(cuid())
+  sponsorId   String
+  sponsor     Sponsor  @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  impressions Int      @default(0)
+  joins       Int      @default(0)
+  redemptions Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("sponsor_campaigns")
+}
+
+// ─── Reports & Moderation ─────────────────────────────────────────────────────
+
+model Report {
+  id         String    @id @default(cuid())
+  reporterId String
+  reporter   User      @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedId String?
+  reported   User?     @relation("reported", fields: [reportedId], references: [id])
+  postId     String?
+  post       FeedPost? @relation(fields: [postId], references: [id])
+  reason     String
+  details    String?
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@map("reports")
+}
+
+// ─── Admin Audit Log ──────────────────────────────────────────────────────────
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String?
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@map("admin_audit_logs")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  isRead    Boolean          @default(false)
+  linkUrl   String?
+  createdAt DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+// ─── App Settings ─────────────────────────────────────────────────────────────
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
+// ─── Direct (1v1) Challenges ──────────────────────────────────────────────────
+
+model DirectChallenge {
+  id           String                @id @default(cuid())
+  challengerId String
+  challengeeId String
+  type         DirectChallengeType
+  targetValue  Float
+  endDate      DateTime
+  status       DirectChallengeStatus @default(PENDING)
+  winnerId     String?
+  message      String?
+  challenger   User                  @relation("ChallengerDirect", fields: [challengerId], references: [id], onDelete: Cascade)
+  challengee   User                  @relation("ChallengeeDirect", fields: [challengeeId], references: [id], onDelete: Cascade)
+  winner       User?                 @relation("WinnerDirect", fields: [winnerId], references: [id])
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@map("direct_challenges")
+}
+
+// ─── Reward Auctions ──────────────────────────────────────────────────────────
+
+model RewardAuction {
+  id        String       @id @default(cuid())
+  rewardId  String
+  reward    Reward       @relation(fields: [rewardId], references: [id])
+  startTime DateTime
+  endTime   DateTime
+  minBid    Int          @default(10)
+  bids      AuctionBid[]
+  winnerId  String?
+  winner    User?        @relation("AuctionWinner", fields: [winnerId], references: [id])
+  isSettled Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  @@map("reward_auctions")
+}
+
+model AuctionBid {
+  id        String        @id @default(cuid())
+  auctionId String
+  userId    String
+  points    Int
+  auction   RewardAuction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([auctionId, userId])
+  @@map("auction_bids")
+}
+
+// ─── Direct Messages ─────────────────────────────────────────────────────────
+
+model Conversation {
+  id           String    @id @default(cuid())
+  participantA String
+  participantB String
+  lastMessageAt DateTime @default(now())
+  createdAt    DateTime  @default(now())
+
+  messages DirectMessage[]
+
+  @@unique([participantA, participantB])
+  @@map("conversations")
+}
+
+model DirectMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  body           String
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@map("direct_messages")
+}
+
+// ─── Squad Goals ──────────────────────────────────────────────────────────────
+
+model SquadGoal {
+  id           String              @id @default(cuid())
+  teamId       String
+  team         Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  title        String
+  type         DirectChallengeType
+  targetValue  Float
+  currentValue Float               @default(0)
+  startDate    DateTime
+  endDate      DateTime
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("squad_goals")
+}
+
+// ─── Live Tracking ────────────────────────────────────────────────────────────
+
+model LiveTrackingSession {
+  id         String       @id @default(cuid())
+  token      String       @unique @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityId String?      @unique
+  activity   Activity?    @relation(fields: [activityId], references: [id])
+  title      String?
+  type       ActivityType @default(RUN)
+  isActive   Boolean      @default(true)
+  startedAt  DateTime     @default(now())
+  endedAt    DateTime?
+  points     TrackingPoint[]
+
+  @@map("live_tracking_sessions")
+}
+
+model TrackingPoint {
+  id        String              @id @default(cuid())
+  sessionId String
+  session   LiveTrackingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  lat       Float
+  lng       Float
+  alt       Float?
+  speed     Float?
+  heartRate Float?
+  cadence   Int?
+  accuracy  Float?
+  timestamp DateTime
+  sequence  Int
+
+  @@map("tracking_points")
+}
+
+// ─── Gear Tracking ────────────────────────────────────────────────────────────
+
+model Gear {
+  id               String     @id @default(cuid())
+  userId           String
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  type             GearType
+  brand            String?
+  model            String?
+  totalDistanceKm  Float      @default(0)
+  alertThresholdKm Float?
+  isRetired        Boolean    @default(false)
+  purchasedAt      DateTime?
+  notes            String?
+  activities       Activity[] @relation("ActivityGear")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@map("gear_items")
+}
+
+// ─── Venue QR Check-in ────────────────────────────────────────────────────────
+
+model CenterQR {
+  id          String         @id @default(cuid())
+  centerId    String
+  center      Center         @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  token       String         @unique @default(cuid())
+  label       String?
+  isActive    Boolean        @default(true)
+  expiresAt   DateTime?
+  createdById String
+  createdBy   User           @relation("QRCreator", fields: [createdById], references: [id])
+  checkIns    VenueCheckIn[]
+  createdAt   DateTime       @default(now())
+
+  @@map("center_qr_codes")
+}
+
+model VenueCheckIn {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  centerId      String
+  center        Center   @relation(fields: [centerId], references: [id])
+  qrId          String
+  qr            CenterQR @relation(fields: [qrId], references: [id])
+  pointsAwarded Int      @default(0)
+  checkedInAt   DateTime @default(now())
+
+  @@map("venue_check_ins")
+}
+
+// ─── Team Announcements ───────────────────────────────────────────────────────
+
+model TeamAnnouncement {
+  id        String    @id @default(cuid())
+  teamId    String
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+  title     String
+  content   String
+  isPinned  Boolean   @default(false)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("team_announcements")
+}
+
+// ─── Activity Teammate Tags ───────────────────────────────────────────────────
+
+model ActivityTag {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  taggerId   String
+  tagger     User     @relation("ActivityTagger", fields: [taggerId], references: [id])
+  taggedId   String
+  tagged     User     @relation("ActivityTagged", fields: [taggedId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([activityId, taggedId])
+  @@map("activity_tags")
+}
+
+// ─── Center Sessions / Bookings ───────────────────────────────────────────────
+
+model CenterSession {
+  id           String               @id @default(cuid())
+  centerId     String
+  center       Center               @relation(fields: [centerId], references: [id])
+  title        String
+  description  String?
+  type         ActivityType
+  startTime    DateTime
+  endTime      DateTime
+  capacity     Int                  @default(-1)
+  pointsReward Int                  @default(0)
+  isPublic     Boolean              @default(true)
+  createdById  String
+  createdBy    User                 @relation("SessionCreator", fields: [createdById], references: [id])
+  participants SessionParticipant[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@map("center_sessions")
+}
+
+model SessionParticipant {
+  id            String           @id @default(cuid())
+  sessionId     String
+  session       CenterSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  status        AttendanceStatus @default(REGISTERED)
+  pointsAwarded Boolean          @default(false)
+  registeredAt  DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([sessionId, userId])
+  @@map("session_participants")
+}

@@ -1,0 +1,44 @@
+services:
+  # Background job worker (for future BullMQ queues)
+  - type: worker
+    name: garrincha-worker
+    env: node
+    plan: starter
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: node src/workers/index.js
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+# Databases (if self-hosting PostgreSQL on Render instead of Supabase)
+# databases:
+#   - name: garrincha-db
+#     databaseName: garrincha_active
+#     user: garrincha
+#     plan: starter
+
+# Notes:
+# - The Next.js app itself deploys to Vercel (see vercel.json)
+# - This render.yaml is for the background worker service only
+# - Set DATABASE_URL and all secret env vars manually in Render dashboard
+# - sync: false means "manage in dashboard, not in this file" (keeps secrets out of git)
