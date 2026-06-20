@@ -4,12 +4,12 @@ import {
   ActivityType,
   ActivityVisibility,
   ActivityStatus,
-  FeedPost,
   FeedPostType,
   DirectChallengeType,
+  Prisma,
 } from '@/generated/prisma'
 import { awardActivityPoints } from '@/services/points'
-import { calculateActivityPoints, isSpeedSuspicious } from '@/lib/points-rules'
+import { calculateActivityPoints, isSpeedSuspicious, getLevelFromPoints } from '@/lib/points-rules'
 import { checkBadgesForActivity } from '@/services/badges'
 import { createFeedPost } from '@/services/feed'
 import { syncActivityProgress } from '@/services/challenges'
@@ -75,6 +75,7 @@ export type CreateActivityInput = {
   cadence?: number
   powerWatts?: number
   temperature?: number
+  caloriesBurned?: number
 }
 
 export async function createActivity(
@@ -84,6 +85,7 @@ export async function createActivity(
   const {
     title, type, startedAt, durationMinutes, distanceKm, description, visibility,
     gear, effortLevel, heartRateAvg, heartRateMax, cadence, powerWatts, temperature,
+    caloriesBurned,
   } = input
 
   // Calculate derived metrics
@@ -133,6 +135,7 @@ export async function createActivity(
       cadence: cadence ?? null,
       powerWatts: powerWatts ?? null,
       temperature: temperature ?? null,
+      caloriesBurned: caloriesBurned ?? null,
       visibility: visibility ?? ActivityVisibility.PUBLIC,
       status,
       pointsEarned,
@@ -235,14 +238,21 @@ export async function getActivityById(
   return activity
 }
 
+const publicFeedInclude = {
+  user: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+  activity: true,
+  userBadge: { include: { badge: true } },
+  _count: { select: { reactions: true, comments: true } },
+} as const
+
 export async function getPublicFeed(
   options?: { page?: number; limit?: number },
-): Promise<FeedPost[]> {
+): Promise<Prisma.FeedPostGetPayload<{ include: typeof publicFeedInclude }>[]> {
   const page = options?.page ?? 1
   const limit = options?.limit ?? 20
   const skip = (page - 1) * limit
 
-  const posts = await prisma.feedPost.findMany({
+  return prisma.feedPost.findMany({
     where: {
       visibility: ActivityVisibility.PUBLIC,
       moderationStatus: 'VISIBLE',
@@ -250,26 +260,8 @@ export async function getPublicFeed(
     orderBy: { createdAt: 'desc' },
     skip,
     take: limit,
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          nickname: true,
-          avatarUrl: true,
-        },
-      },
-      activity: true,
-      userBadge: {
-        include: { badge: true },
-      },
-      _count: {
-        select: { reactions: true, comments: true },
-      },
-    },
+    include: publicFeedInclude,
   })
-
-  return posts as unknown as FeedPost[]
 }
 
 export async function approveActivity(activityId: string, adminId: string): Promise<void> {
@@ -350,23 +342,76 @@ export async function rejectActivity(
   adminId: string,
   reason: string,
 ): Promise<void> {
-  await prisma.activity.update({
+  const activity = await prisma.activity.findUniqueOrThrow({
     where: { id: activityId },
-    data: {
-      status: ActivityStatus.REJECTED,
-      flagReason: reason,
-      pointsEarned: 0,
+    select: {
+      status: true,
+      userId: true,
+      type: true,
+      distanceKm: true,
+      durationMinutes: true,
+      pointsEarned: true,
     },
   })
 
-  // Log admin action
+  const wasApproved = activity.status === ActivityStatus.APPROVED
+
+  if (wasApproved) {
+    // Reverse all side-effects from the original approval in one transaction
+    const carbonSaved =
+      activity.distanceKm != null
+        ? (CARBON_KG_PER_KM[activity.type] ?? 0) * activity.distanceKm
+        : 0
+
+    const profile = await prisma.playerProfile.findUnique({
+      where: { userId: activity.userId },
+      select: { lifetimePoints: true, totalPoints: true },
+    })
+
+    const deductPoints = Math.min(activity.pointsEarned, profile?.totalPoints ?? 0)
+    const newLifetime = Math.max(0, (profile?.lifetimePoints ?? 0) - activity.pointsEarned)
+    const newLevel = getLevelFromPoints(newLifetime)
+
+    await prisma.$transaction([
+      // Remove the awarded points ledger entry
+      prisma.pointsLedger.deleteMany({
+        where: { sourceType: 'ACTIVITY', sourceId: activityId },
+      }),
+      // Reverse PlayerProfile totals
+      prisma.playerProfile.update({
+        where: { userId: activity.userId },
+        data: {
+          totalPoints: { decrement: deductPoints },
+          lifetimePoints: { decrement: activity.pointsEarned },
+          totalDistance: { decrement: activity.distanceKm ?? 0 },
+          totalMinutes: { decrement: activity.durationMinutes },
+          totalActivities: { decrement: 1 },
+          carbonSavedKg: { decrement: carbonSaved },
+          level: newLevel,
+        },
+      }),
+      // Remove the feed post so it no longer appears in feeds
+      prisma.feedPost.deleteMany({ where: { activityId } }),
+      // Mark the activity rejected
+      prisma.activity.update({
+        where: { id: activityId },
+        data: { status: ActivityStatus.REJECTED, flagReason: reason, pointsEarned: 0 },
+      }),
+    ])
+  } else {
+    await prisma.activity.update({
+      where: { id: activityId },
+      data: { status: ActivityStatus.REJECTED, flagReason: reason, pointsEarned: 0 },
+    })
+  }
+
   await prisma.adminAuditLog.create({
     data: {
       adminId,
       action: 'REJECT_ACTIVITY',
       entityType: 'Activity',
       entityId: activityId,
-      details: `Activity rejected. Reason: ${reason}`,
+      details: `Activity rejected${wasApproved ? ' (was APPROVED — points and profile totals reversed)' : ''}. Reason: ${reason}`,
     },
   })
 }

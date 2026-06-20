@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { PrismaClient } from '@/generated/prisma/client'
-import type { User, Activity, Report } from '@/generated/prisma'
+import type { User } from '@/generated/prisma'
 import {
   Role,
   ActivityStatus,
@@ -8,6 +8,7 @@ import {
   EventStatus,
   PointsSourceType,
   NotificationType,
+  Prisma,
 } from '@/generated/prisma'
 
 type TransactionClient = Omit<
@@ -321,56 +322,43 @@ export async function awardAdminPoints(
 
 // ─── Flagged Activities ───────────────────────────────────────────────────────
 
-export async function getFlaggedActivities(): Promise<Activity[]> {
-  const activities = await prisma.activity.findMany({
+const flaggedActivityInclude = {
+  user: { select: { id: true, name: true, nickname: true, avatarUrl: true, email: true } },
+  media: true,
+} as const
+
+export async function getFlaggedActivities(): Promise<
+  Prisma.ActivityGetPayload<{ include: typeof flaggedActivityInclude }>[]
+> {
+  return prisma.activity.findMany({
     where: { status: ActivityStatus.FLAGGED },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          nickname: true,
-          avatarUrl: true,
-          email: true,
-        },
-      },
-      media: true,
-    },
+    include: flaggedActivityInclude,
     orderBy: { updatedAt: 'desc' },
   })
-
-  return activities as unknown as Activity[]
 }
 
 // ─── Reported Posts ───────────────────────────────────────────────────────────
 
-export async function getReportedPosts(): Promise<Report[]> {
-  const reports = await prisma.report.findMany({
-    where: { resolved: false },
+const reportedPostInclude = {
+  reporter: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+  reported: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+  post: {
     include: {
-      reporter: {
-        select: { id: true, name: true, nickname: true, avatarUrl: true },
-      },
-      reported: {
-        select: { id: true, name: true, nickname: true, avatarUrl: true },
-      },
-      post: {
-        include: {
-          user: {
-            select: { id: true, name: true, nickname: true, avatarUrl: true },
-          },
-          reactions: true,
-          comments: {
-            take: 3,
-            orderBy: { createdAt: 'desc' },
-          },
-        },
-      },
+      user: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+      reactions: true,
+      comments: { take: 3, orderBy: { createdAt: 'desc' as const } },
     },
+  },
+} as const
+
+export async function getReportedPosts(): Promise<
+  Prisma.ReportGetPayload<{ include: typeof reportedPostInclude }>[]
+> {
+  return prisma.report.findMany({
+    where: { resolved: false },
+    include: reportedPostInclude,
     orderBy: { createdAt: 'desc' },
   })
-
-  return reports as unknown as Report[]
 }
 
 // ─── Engagement by Center ─────────────────────────────────────────────────────

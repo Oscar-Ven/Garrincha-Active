@@ -25,6 +25,12 @@ function getDateRange(filter: LeaderboardFilter): { start: Date; end: Date } | n
   return null
 }
 
+/**
+ * Returns ranked leaderboard entries.
+ * Time-bounded filters (weekly/monthly) aggregate from the activities table so
+ * the result reflects actual effort in the window — not lifetime profile totals.
+ * The global/center paths read pre-computed PlayerProfile totals for speed.
+ */
 export async function getLeaderboard(options: {
   filter?: LeaderboardFilter
   centerId?: string
@@ -199,6 +205,7 @@ export async function getChallengeLeaderboard(
   }))
 }
 
+/** Friends leaderboard — includes the requesting user alongside everyone they follow. */
 export async function getFriendsLeaderboard(
   userId: string,
   metric: LeaderboardMetric = 'points',
@@ -252,6 +259,9 @@ export async function getFriendsLeaderboard(
   }))
 }
 
+/** Returns the 1-based global rank of a player. Rank is derived via a COUNT of
+ *  profiles with a higher score — efficient with the PlayerProfile index but does
+ *  not account for ties (first registered wins). Returns 0 if no profile found. */
 export async function getPlayerRank(
   userId: string,
   metric: LeaderboardMetric = 'points',

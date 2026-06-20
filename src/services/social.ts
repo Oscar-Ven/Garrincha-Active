@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
 import { Follow, User, NotificationType } from '@/generated/prisma'
+import { notifyUser } from '@/lib/notify'
 
 export async function followUser(followerId: string, followingId: string): Promise<Follow> {
   if (followerId === followingId) {
@@ -25,16 +26,13 @@ export async function followUser(followerId: string, followingId: string): Promi
     select: { name: true, nickname: true },
   })
 
-  await prisma.notification.create({
-    data: {
-      userId: followingId,
-      type: NotificationType.NEW_FOLLOWER,
-      title: 'New Follower',
-      body: follower
-        ? `${follower.name} (@${follower.nickname}) started following you`
-        : 'Someone started following you',
-      linkUrl: follower ? `/profile/${follower.nickname}` : undefined,
-    },
+  await notifyUser(followingId, {
+    type: NotificationType.NEW_FOLLOWER,
+    title: 'New Follower',
+    body: follower
+      ? `${follower.name} (@${follower.nickname}) started following you`
+      : 'Someone started following you',
+    linkUrl: follower ? `/profile/${follower.nickname}` : undefined,
   })
 
   return follow

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
-import { FeedPostType, ActivityVisibility, ModerationStatus } from '@/generated/prisma'
-import type { FeedPost, FeedComment, Report } from '@/generated/prisma'
+import { FeedPostType, ActivityVisibility, ModerationStatus, NotificationType } from '@/generated/prisma'
+import type { Report, Prisma } from '@/generated/prisma'
+import { notifyUser } from '@/lib/notify'
 
 // ─── Shared include shape ────────────────────────────────────────────────────
 
@@ -23,8 +24,20 @@ const feedPostInclude = {
   _count: { select: { comments: true, reactions: true } },
 } as const
 
+/** Fully hydrated FeedPost including all joined relations. */
+export type FeedPostFull = Prisma.FeedPostGetPayload<{ include: typeof feedPostInclude }>
+
+const commentInclude = {
+  user: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+} as const
+
+/** FeedComment with its author. */
+export type FeedCommentFull = Prisma.FeedCommentGetPayload<{ include: typeof commentInclude }>
+
 // ─── Create ──────────────────────────────────────────────────────────────────
 
+/** Creates a feed post. When linked to an activity, inherits its visibility setting
+ *  so a private activity never appears as a public feed post. */
 export async function createFeedPost(data: {
   userId: string
   type: FeedPostType
@@ -34,7 +47,7 @@ export async function createFeedPost(data: {
   challengeParticipantId?: string
   rewardRedemptionId?: string
   eventRegistrationId?: string
-}): Promise<FeedPost> {
+}): Promise<FeedPostFull> {
   // Inherit visibility from the linked activity when present, default to PUBLIC
   let visibility: ActivityVisibility = ActivityVisibility.PUBLIC
 
@@ -61,7 +74,7 @@ export async function createFeedPost(data: {
       eventRegistrationId: data.eventRegistrationId,
     },
     include: feedPostInclude,
-  }) as unknown as FeedPost
+  })
 }
 
 // ─── Public feed ─────────────────────────────────────────────────────────────
@@ -70,7 +83,7 @@ export async function getPublicFeed(options?: {
   page?: number
   limit?: number
   userId?: string
-}): Promise<FeedPost[]> {
+}): Promise<FeedPostFull[]> {
   const page = options?.page ?? 1
   const limit = options?.limit ?? 20
   const skip = (page - 1) * limit
@@ -84,15 +97,17 @@ export async function getPublicFeed(options?: {
     orderBy: { createdAt: 'desc' },
     skip,
     take: limit,
-  }) as unknown as FeedPost[]
+  })
 }
 
 // ─── Following feed ───────────────────────────────────────────────────────────
 
+/** Following feed — includes the user's own posts as well as posts from people
+ *  they follow, honouring FOLLOWERS-only visibility. */
 export async function getFollowingFeed(
   userId: string,
   options?: { page?: number; limit?: number },
-): Promise<FeedPost[]> {
+): Promise<FeedPostFull[]> {
   const page = options?.page ?? 1
   const limit = options?.limit ?? 20
   const skip = (page - 1) * limit
@@ -120,12 +135,12 @@ export async function getFollowingFeed(
     orderBy: { createdAt: 'desc' },
     skip,
     take: limit,
-  }) as unknown as FeedPost[]
+  })
 }
 
 // ─── User feed ────────────────────────────────────────────────────────────────
 
-export async function getUserFeed(userId: string): Promise<FeedPost[]> {
+export async function getUserFeed(userId: string): Promise<FeedPostFull[]> {
   return prisma.feedPost.findMany({
     where: {
       userId,
@@ -133,7 +148,7 @@ export async function getUserFeed(userId: string): Promise<FeedPost[]> {
     },
     include: feedPostInclude,
     orderBy: { createdAt: 'desc' },
-  }) as unknown as FeedPost[]
+  })
 }
 
 // ─── Reactions (kudos) ────────────────────────────────────────────────────────
@@ -144,6 +159,16 @@ export async function addKudos(postId: string, userId: string): Promise<void> {
     create: { postId, userId, type: 'KUDOS' },
     update: { type: 'KUDOS' },
   })
+
+  const post = await prisma.feedPost.findUnique({ where: { id: postId }, select: { userId: true } })
+  if (post && post.userId !== userId) {
+    await notifyUser(post.userId, {
+      type: NotificationType.ACTIVITY_LIKED,
+      title: 'New Kudos',
+      body: 'Someone gave you kudos on your post.',
+      linkUrl: '/app/feed',
+    })
+  }
 }
 
 export async function removeKudos(postId: string, userId: string): Promise<void> {
@@ -158,40 +183,34 @@ export async function addComment(
   postId: string,
   userId: string,
   content: string,
-): Promise<FeedComment> {
-  return prisma.feedComment.create({
+): Promise<FeedCommentFull> {
+  const comment = await prisma.feedComment.create({
     data: { postId, userId, content },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          nickname: true,
-          avatarUrl: true,
-        },
-      },
-    },
-  }) as unknown as FeedComment
+    include: commentInclude,
+  })
+
+  const post = await prisma.feedPost.findUnique({ where: { id: postId }, select: { userId: true } })
+  if (post && post.userId !== userId) {
+    await notifyUser(post.userId, {
+      type: NotificationType.COMMENT_RECEIVED,
+      title: 'New Comment',
+      body: 'Someone commented on your post.',
+      linkUrl: '/app/feed',
+    })
+  }
+
+  return comment
 }
 
-export async function getComments(postId: string): Promise<FeedComment[]> {
+export async function getComments(postId: string): Promise<FeedCommentFull[]> {
   return prisma.feedComment.findMany({
     where: {
       postId,
       moderationStatus: ModerationStatus.VISIBLE,
     },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          nickname: true,
-          avatarUrl: true,
-        },
-      },
-    },
+    include: commentInclude,
     orderBy: { createdAt: 'asc' },
-  }) as unknown as FeedComment[]
+  })
 }
 
 // ─── Reports ──────────────────────────────────────────────────────────────────

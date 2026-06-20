@@ -200,6 +200,21 @@ enum Level {
   ELITE
 }
 
+enum SkillLevel {
+  BEGINNER
+  RECREATIONAL
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
 // ─── Core User ───────────────────────────────────────────────────────────────
 
 model User {
@@ -270,7 +285,14 @@ model User {
   referredBy            Referral?              @relation("Referred")
   oauthAccounts         OAuthAccount[]
   teamMessagesSent      TeamMessage[]          @relation("TeamMessageSender")
-  goals                 Goal[]
+  goals                    Goal[]
+  memberships              Membership[]
+  courtBookings            CourtBooking[]
+  availability             UserAvailability[]
+  pushSubscriptions        PushSubscription[]
+  tournamentMatchesHome    TournamentMatch[]  @relation("TournamentHome")
+  tournamentMatchesAway    TournamentMatch[]  @relation("TournamentAway")
+  tournamentMatchesWon     TournamentMatch[]  @relation("TournamentWinner")
 
   @@map("users")
 }
@@ -295,6 +317,8 @@ model PlayerProfile {
   carbonSavedKg     Float     @default(0)
   wellnessScore     Float?
   trainingLoadScore Float?
+  skillLevel        SkillLevel?
+  eloRating         Int       @default(1000)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -319,16 +343,19 @@ model Center {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  players    User[]
-  rewards    Reward[]
-  events     Event[]
-  challenges Challenge[]
-  segments   Segment[]
-  routes     Route[]
-  teams      Team[]
-  qrCodes    CenterQR[]
-  checkIns   VenueCheckIn[]
-  sessions   CenterSession[]
+  players         User[]
+  rewards         Reward[]
+  events          Event[]
+  challenges      Challenge[]
+  segments        Segment[]
+  routes          Route[]
+  teams           Team[]
+  qrCodes         CenterQR[]
+  checkIns        VenueCheckIn[]
+  sessions        CenterSession[]
+  membershipPlans MembershipPlan[]
+  memberships     Membership[]
+  courts          Court[]
 
   @@map("centers")
 }
@@ -377,6 +404,8 @@ model Activity {
   liveSession     LiveTrackingSession?
   tags            ActivityTag[]
 
+  @@index([userId, startedAt])
+  @@index([status, startedAt])
   @@map("activities")
 }
 
@@ -538,6 +567,8 @@ model PointsLedger {
   expiresAt  DateTime?
   createdAt  DateTime         @default(now())
 
+  @@index([userId, expiresAt])
+  @@index([userId, createdAt])
   @@map("points_ledger")
 }
 
@@ -692,6 +723,8 @@ model FeedPost {
   reports   Report[]
   hashtags  FeedPostHashtag[]
 
+  @@index([userId, createdAt])
+  @@index([moderationStatus, visibility])
   @@map("feed_posts")
 }
 
@@ -756,7 +789,8 @@ model Event {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  registrations EventRegistration[]
+  registrations    EventRegistration[]
+  tournamentMatches TournamentMatch[]
 
   @@map("events")
 }
@@ -897,6 +931,8 @@ model Notification {
   linkUrl   String?
   createdAt DateTime         @default(now())
 
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
   @@map("notifications")
 }
 
@@ -1146,11 +1182,15 @@ model CenterSession {
   startTime    DateTime
   endTime      DateTime
   capacity     Int                  @default(-1)
+  price        Decimal?             @db.Decimal(10, 2)
   pointsReward Int                  @default(0)
   isPublic     Boolean              @default(true)
   createdById  String
   createdBy    User                 @relation("SessionCreator", fields: [createdById], references: [id])
   participants SessionParticipant[]
+  isOpenGame        Boolean        @default(false)
+  minSkillLevel     SkillLevel?
+  maxSkillLevel     SkillLevel?
   isRecurring       Boolean        @default(false)
   recurrenceType    String?
   recurrenceEndDate DateTime?
@@ -1290,4 +1330,144 @@ model FeedPostHashtag {
 
   @@id([feedPostId, hashtagId])
   @@map("feed_post_hashtags")
+}
+
+// ─── Membership Plans ────────────────────────────────────────────────────────
+
+model MembershipPlan {
+  id           String       @id @default(cuid())
+  centerId     String
+  center       Center       @relation(fields: [centerId], references: [id])
+  name         String
+  description  String?
+  durationDays Int
+  maxSessions  Int?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  memberships  Membership[]
+
+  @@map("membership_plans")
+}
+
+model Membership {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId       String?
+  plan         MembershipPlan?  @relation(fields: [planId], references: [id])
+  centerId     String
+  center       Center           @relation(fields: [centerId], references: [id])
+  status       MembershipStatus @default(ACTIVE)
+  startDate    DateTime
+  expiryDate   DateTime
+  sessionsUsed Int              @default(0)
+  notes        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("memberships")
+}
+
+// ─── Courts & Slot Booking ────────────────────────────────────────────────────
+
+enum CourtBookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Court {
+  id          String         @id @default(cuid())
+  centerId    String
+  center      Center         @relation(fields: [centerId], references: [id])
+  name        String
+  sport       String?
+  description String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  bookings    CourtBooking[]
+
+  @@map("courts")
+}
+
+model CourtBooking {
+  id        String             @id @default(cuid())
+  courtId   String
+  court     Court              @relation(fields: [courtId], references: [id])
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  startTime DateTime
+  endTime   DateTime
+  status    CourtBookingStatus @default(CONFIRMED)
+  pricePaid Decimal?           @db.Decimal(10, 2)
+  notes     String?
+  createdAt DateTime           @default(now())
+
+  @@map("court_bookings")
+}
+
+// ─── Player Availability ──────────────────────────────────────────────────────
+
+model UserAvailability {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek    Int?      // 0=Sun … 6=Sat; null when specificDate is set
+  specificDate DateTime?
+  startHour    Int
+  startMinute  Int       @default(0)
+  endHour      Int
+  endMinute    Int       @default(0)
+  note         String?
+  createdAt    DateTime  @default(now())
+
+  @@map("user_availability")
+}
+
+// ─── Web Push Subscriptions ───────────────────────────────────────────────────
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@map("push_subscriptions")
+}
+
+// ─── Tournament Brackets ──────────────────────────────────────────────────────
+
+enum TournamentMatchStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model TournamentMatch {
+  id          String                @id @default(cuid())
+  eventId     String
+  event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  round       Int
+  matchIndex  Int
+  homeUserId  String?
+  homeUser    User?                 @relation("TournamentHome", fields: [homeUserId], references: [id])
+  awayUserId  String?
+  awayUser    User?                 @relation("TournamentAway", fields: [awayUserId], references: [id])
+  homeScore   Int?
+  awayScore   Int?
+  winnerId    String?
+  winner      User?                 @relation("TournamentWinner", fields: [winnerId], references: [id])
+  status      TournamentMatchStatus @default(PENDING)
+  scheduledAt DateTime?
+  createdAt   DateTime              @default(now())
+
+  @@unique([eventId, round, matchIndex])
+  @@map("tournament_matches")
 }

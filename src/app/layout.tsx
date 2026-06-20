@@ -20,7 +20,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-0 focus:left-0 focus:px-4 focus:py-2 focus:bg-green-600 focus:text-white focus:rounded-br"
+        >
+          Skip to main content
+        </a>
         {children}
         <Toaster />
       </body>

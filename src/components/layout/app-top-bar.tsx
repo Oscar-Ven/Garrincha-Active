@@ -16,9 +16,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import type { SessionUser } from '@/lib/auth'
 import { logoutAction } from '@/app/app/_actions/logout'
+import { GlobalSearch } from '@/components/global-search'
 
 interface AppTopBarProps {
   user: SessionUser
+  unreadCount: number
 }
 
 function getInitials(name: string): string {
@@ -29,7 +31,7 @@ function getInitials(name: string): string {
     .join('')
 }
 
-export default function AppTopBar({ user }: AppTopBarProps) {
+export default function AppTopBar({ user, unreadCount }: AppTopBarProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -42,20 +44,17 @@ export default function AppTopBar({ user }: AppTopBarProps) {
 
   return (
     <header className="h-16 flex items-center justify-between border-b border-white/10 bg-slate-900/80 backdrop-blur-md px-6 gap-4">
-      {/* Left: page context slot (empty; pages can use <title> or breadcrumbs) */}
+      {/* Left: global search */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-slate-400 truncate">
-          Welcome back,{' '}
-          <span className="font-semibold text-white">{user.name}</span>
-        </p>
+        <GlobalSearch />
       </div>
 
       {/* Right: notification bell + avatar dropdown */}
       <div className="flex items-center gap-2 shrink-0">
         {/* Notification bell */}
-        <button
-          type="button"
-          aria-label="Notifications"
+        <Link
+          href="/app/notifications"
+          aria-label={`Notifications${unreadCount > 0 ? ` — ${unreadCount} unread` : ''}`}
           className={cn(
             'relative rounded-full p-2 text-slate-400 transition-colors',
             'hover:bg-white/10 hover:text-white',
@@ -63,12 +62,15 @@ export default function AppTopBar({ user }: AppTopBarProps) {
           )}
         >
           <Bell className="h-5 w-5" />
-          {/* Unread indicator dot */}
-          <span
-            aria-hidden="true"
-            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-green-500 ring-2 ring-slate-900"
-          />
-        </button>
+          {unreadCount > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[9px] font-bold text-white ring-2 ring-slate-900"
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Link>
 
         {/* Avatar + dropdown */}
         <DropdownMenu>

@@ -30,7 +30,8 @@ export async function awardActivityPoints(
 
   const pointsToAward = Math.min(rawPoints, remaining)
 
-  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
 
   await prisma.$transaction(async (tx) => {
     await tx.pointsLedger.create({
@@ -42,6 +43,12 @@ export async function awardActivityPoints(
         reason: `Activity points for ${type}`,
         expiresAt,
       },
+    })
+
+    // Any new award resets the 1-year expiry clock on all non-expired entries
+    await tx.pointsLedger.updateMany({
+      where: { userId, points: { gt: 0 }, expiresAt: { gt: now } },
+      data: { expiresAt },
     })
 
     const profile = await tx.playerProfile.findUnique({
@@ -80,7 +87,8 @@ export async function awardPoints(
     return
   }
 
-  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
 
   await prisma.$transaction(async (tx) => {
     await tx.pointsLedger.create({
@@ -92,6 +100,12 @@ export async function awardPoints(
         reason: reason ?? `Points awarded: ${sourceType}`,
         expiresAt,
       },
+    })
+
+    // Any new award resets the 1-year expiry clock on all non-expired entries
+    await tx.pointsLedger.updateMany({
+      where: { userId, points: { gt: 0 }, expiresAt: { gt: now } },
+      data: { expiresAt },
     })
 
     const profile = await tx.playerProfile.findUnique({

@@ -1,7 +1,8 @@
 import { prisma } from '@/lib/db'
-import { ActivityType, Badge, UserBadge, PointsSourceType } from '@/generated/prisma'
+import { ActivityType, Badge, UserBadge, PointsSourceType, NotificationType } from '@/generated/prisma'
 import { awardPoints } from '@/services/points'
 import { createFeedPost } from '@/services/feed'
+import { notifyUser } from '@/lib/notify'
 
 export const BADGE_KEYS = [
   'first_activity',
@@ -66,6 +67,13 @@ export async function checkAndAwardBadge(
     userBadge.id,
     `Badge earned: ${badge.name}`,
   )
+
+  await notifyUser(userId, {
+    type: NotificationType.BADGE_AWARDED,
+    title: 'Badge Unlocked!',
+    body: `You earned the "${badge.name}" badge.`,
+    linkUrl: '/app/badges',
+  })
 
   return userBadge
 }

@@ -209,6 +209,32 @@ export default async function TrainingPlanPage() {
 
   const plan = generatePlan(level, dominantType, weeklyMinutes)
 
+  // --- Week 1 completion: align to current Mon–Sun and mark matched sessions ---
+  const today = new Date()
+  const dow = today.getDay() // 0 = Sun
+  const daysFromMonday = dow === 0 ? 6 : dow - 1
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - daysFromMonday)
+  monday.setHours(0, 0, 0, 0)
+
+  // completedByDay: dayIndex (0=Mon…6=Sun) → set of ActivityTypes done this week
+  const completedByDay = new Map<number, Set<ActivityType>>()
+  for (const act of recentActivities) {
+    const d = new Date(act.startedAt)
+    if (d < monday) continue
+    const actDow = d.getDay()
+    const dayIdx = actDow === 0 ? 6 : actDow - 1
+    const set = completedByDay.get(dayIdx) ?? new Set<ActivityType>()
+    set.add(act.type)
+    completedByDay.set(dayIdx, set)
+  }
+
+  const isSessionDone = (dayStr: string, type: ActivityType | 'REST'): boolean => {
+    if (type === 'REST') return false
+    const dayIdx = (DAYS as readonly string[]).indexOf(dayStr)
+    return dayIdx !== -1 && (completedByDay.get(dayIdx)?.has(type as ActivityType) ?? false)
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -250,26 +276,34 @@ export default async function TrainingPlanPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-7 gap-1.5">
-              {week.sessions.map((sess) => (
-                <div
-                  key={sess.day}
-                  className={`rounded-lg border p-2 flex flex-col gap-1 min-h-[96px] ${EFFORT_COLORS[sess.effort]}`}
-                  title={sess.notes}
-                >
-                  <span className="text-[11px] font-semibold text-slate-300">{sess.day}</span>
-                  <div className="flex items-center justify-center flex-1">
-                    <ActivityIcon type={sess.type} />
-                  </div>
-                  <span className="text-[10px] font-medium text-center leading-tight">
-                    {sess.effort}
-                  </span>
-                  {sess.duration > 0 && (
-                    <span className="text-[10px] text-center text-slate-300">
-                      {sess.duration} min
+              {week.sessions.map((sess) => {
+                const done = week.weekNumber === 1 && isSessionDone(sess.day, sess.type)
+                return (
+                  <div
+                    key={sess.day}
+                    className={`rounded-lg border p-2 flex flex-col gap-1 min-h-24 ${done ? 'border-green-500 ring-1 ring-green-500/40' : ''} ${EFFORT_COLORS[sess.effort]}`}
+                    title={sess.notes}
+                  >
+                    <span className="text-[11px] font-semibold text-slate-300">{sess.day}</span>
+                    <div className="flex items-center justify-center flex-1">
+                      <ActivityIcon type={sess.type} />
+                    </div>
+                    <span className="text-[10px] font-medium text-center leading-tight">
+                      {sess.effort}
                     </span>
-                  )}
-                </div>
-              ))}
+                    {sess.duration > 0 && (
+                      <span className="text-[10px] text-center text-slate-300">
+                        {sess.duration} min
+                      </span>
+                    )}
+                    {done && (
+                      <span className="text-[10px] text-green-400 font-bold text-center leading-none">
+                        ✓ Done
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {/* Session notes list */}
