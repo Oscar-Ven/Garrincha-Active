@@ -10,6 +10,12 @@ vi.mock('@/generated/prisma', () => ({
     FOOTBALL_MATCH: 'FOOTBALL_MATCH',
     FITNESS: 'FITNESS',
     CUSTOM: 'CUSTOM',
+    PADEL: 'PADEL',
+    TENNIS: 'TENNIS',
+    SQUASH: 'SQUASH',
+    PICKLEBALL: 'PICKLEBALL',
+    BADMINTON: 'BADMINTON',
+    RACQUETBALL: 'RACQUETBALL',
   },
 }))
 

@@ -25,6 +25,12 @@ enum ActivityType {
   FOOTBALL_MATCH
   FITNESS
   CUSTOM
+  PADEL
+  TENNIS
+  SQUASH
+  PICKLEBALL
+  BADMINTON
+  RACQUETBALL
 }
 
 enum ActivityVisibility {

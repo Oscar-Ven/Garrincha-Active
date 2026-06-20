@@ -35,6 +35,7 @@ function monthsFromNow(n: number): Date {
 function calcPoints(type: ActivityType, durationMinutes: number, distanceKm?: number): number {
   const base: Record<ActivityType, number> = {
     RUN: 10, WALK: 5, CYCLING: 8, FOOTBALL_TRAINING: 12, FOOTBALL_MATCH: 20, FITNESS: 8, CUSTOM: 5,
+    PADEL: 15, TENNIS: 15, SQUASH: 12, PICKLEBALL: 10, BADMINTON: 10, RACQUETBALL: 12,
   }
   let pts = base[type] + Math.floor(durationMinutes * 0.5)
   if (distanceKm) pts += Math.floor(distanceKm * 2)

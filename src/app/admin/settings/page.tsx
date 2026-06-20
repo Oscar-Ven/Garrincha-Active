@@ -110,6 +110,12 @@ const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   FOOTBALL_MATCH: 'Football Match',
   FITNESS: 'Fitness',
   CUSTOM: 'Custom',
+  PADEL: 'Padel',
+  TENNIS: 'Tennis',
+  SQUASH: 'Squash',
+  PICKLEBALL: 'Pickleball',
+  BADMINTON: 'Badminton',
+  RACQUETBALL: 'Racquetball',
 }
 
 const ACTIVITY_TYPE_UNIT: Record<ActivityType, string> = {
@@ -120,6 +126,12 @@ const ACTIVITY_TYPE_UNIT: Record<ActivityType, string> = {
   FOOTBALL_MATCH: 'pts / match',
   FITNESS: 'pts / session',
   CUSTOM: 'pts / session',
+  PADEL: 'pts / match',
+  TENNIS: 'pts / match',
+  SQUASH: 'pts / match',
+  PICKLEBALL: 'pts / match',
+  BADMINTON: 'pts / match',
+  RACQUETBALL: 'pts / match',
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────

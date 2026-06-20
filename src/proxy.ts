@@ -4,7 +4,7 @@ const PROTECTED_ROUTES = ['/app', '/admin', '/owner']
 const ADMIN_ROUTES = ['/admin']
 const OWNER_ROUTES = ['/owner']
 const ADMIN_ROLES = ['PLATFORM_ADMIN', 'CENTER_ADMIN']
-const OWNER_ROLES = ['PLATFORM_OWNER']
+const OWNER_ROLES = ['OWNER']
 
 // Our session format: base64json.hexsig (2 parts split by last dot)
 function parseSessionCookie(cookieValue: string): { role?: string } | null {

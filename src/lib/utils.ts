@@ -82,6 +82,18 @@ export function getNextLevel(currentPoints: number): { level: Level; remaining: 
 
 export function activityTypeLabel(type: ActivityType): string {
   switch (type) {
+    case ActivityType.PADEL:
+      return 'Padel'
+    case ActivityType.TENNIS:
+      return 'Tennis'
+    case ActivityType.SQUASH:
+      return 'Squash'
+    case ActivityType.PICKLEBALL:
+      return 'Pickleball'
+    case ActivityType.BADMINTON:
+      return 'Badminton'
+    case ActivityType.RACQUETBALL:
+      return 'Racquetball'
     case ActivityType.RUN:
       return 'Run'
     case ActivityType.WALK:
@@ -103,6 +115,18 @@ export function activityTypeLabel(type: ActivityType): string {
 
 export function activityTypeIcon(type: ActivityType): string {
   switch (type) {
+    case ActivityType.PADEL:
+      return '🎾'
+    case ActivityType.TENNIS:
+      return '🎾'
+    case ActivityType.SQUASH:
+      return '🏸'
+    case ActivityType.PICKLEBALL:
+      return '🏓'
+    case ActivityType.BADMINTON:
+      return '🏸'
+    case ActivityType.RACQUETBALL:
+      return '🎾'
     case ActivityType.RUN:
       return '🏃'
     case ActivityType.WALK:

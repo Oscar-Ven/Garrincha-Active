@@ -29,6 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 const TYPE_EMOJI: Record<ActivityType, string> = {
   RUN: '🏃', WALK: '🚶', CYCLING: '🚴', FOOTBALL_TRAINING: '⚽',
   FOOTBALL_MATCH: '🏟️', FITNESS: '💪', CUSTOM: '🎯',
+  PADEL: '🎾', TENNIS: '🎾', SQUASH: '🏸', PICKLEBALL: '🏓', BADMINTON: '🏸', RACQUETBALL: '🎾',
 }
 
 function getInitials(name: string) {

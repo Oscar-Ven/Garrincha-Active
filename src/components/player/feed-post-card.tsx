@@ -89,6 +89,8 @@ const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   RUN: 'Run', WALK: 'Walk', CYCLING: 'Cycling',
   FOOTBALL_TRAINING: 'Football Training', FOOTBALL_MATCH: 'Football Match',
   FITNESS: 'Fitness', CUSTOM: 'Activity',
+  PADEL: 'Padel', TENNIS: 'Tennis', SQUASH: 'Squash',
+  PICKLEBALL: 'Pickleball', BADMINTON: 'Badminton', RACQUETBALL: 'Racquetball',
 }
 
 const POST_TYPE_META: Record<FeedPostType, { label: string; icon: React.ElementType; badgeVariant: 'default' | 'secondary' | 'outline' | 'destructive' | 'gold' }> = {

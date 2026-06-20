@@ -15,13 +15,19 @@ import { createActivityAction, type CreateActivityFormState } from './actions'
 // ── Activity type config ──────────────────────────────────────────────────────
 
 const ACTIVITY_TYPES: { value: ActivityType; label: string; icon: string; color: string }[] = [
-  { value: ActivityType.RUN,               label: 'Run',       icon: '🏃', color: 'border-orange-600/50 bg-orange-900/20 text-orange-300' },
-  { value: ActivityType.WALK,              label: 'Walk',      icon: '🚶', color: 'border-blue-600/50 bg-blue-900/20 text-blue-300' },
-  { value: ActivityType.CYCLING,           label: 'Cycling',   icon: '🚴', color: 'border-yellow-600/50 bg-yellow-900/20 text-yellow-300' },
-  { value: ActivityType.FOOTBALL_TRAINING, label: 'Training',  icon: '⚽', color: 'border-green-600/50 bg-green-900/20 text-green-300' },
-  { value: ActivityType.FOOTBALL_MATCH,    label: 'Match',     icon: '🏟️', color: 'border-green-600/50 bg-green-900/20 text-green-300' },
-  { value: ActivityType.FITNESS,           label: 'Fitness',   icon: '💪', color: 'border-purple-600/50 bg-purple-900/20 text-purple-300' },
-  { value: ActivityType.CUSTOM,            label: 'Custom',    icon: '🎯', color: 'border-slate-600/50 bg-slate-800/60 text-slate-300' },
+  { value: ActivityType.PADEL,             label: 'Padel',        icon: '🎾', color: 'border-green-600/50 bg-green-900/20 text-green-300' },
+  { value: ActivityType.TENNIS,            label: 'Tennis',       icon: '🎾', color: 'border-yellow-600/50 bg-yellow-900/20 text-yellow-300' },
+  { value: ActivityType.SQUASH,            label: 'Squash',       icon: '🏸', color: 'border-orange-600/50 bg-orange-900/20 text-orange-300' },
+  { value: ActivityType.PICKLEBALL,        label: 'Pickleball',   icon: '🏓', color: 'border-cyan-600/50 bg-cyan-900/20 text-cyan-300' },
+  { value: ActivityType.BADMINTON,         label: 'Badminton',    icon: '🏸', color: 'border-blue-600/50 bg-blue-900/20 text-blue-300' },
+  { value: ActivityType.RACQUETBALL,       label: 'Racquetball',  icon: '🎾', color: 'border-red-600/50 bg-red-900/20 text-red-300' },
+  { value: ActivityType.RUN,               label: 'Run',          icon: '🏃', color: 'border-orange-600/50 bg-orange-900/20 text-orange-300' },
+  { value: ActivityType.WALK,              label: 'Walk',         icon: '🚶', color: 'border-blue-600/50 bg-blue-900/20 text-blue-300' },
+  { value: ActivityType.CYCLING,           label: 'Cycling',      icon: '🚴', color: 'border-yellow-600/50 bg-yellow-900/20 text-yellow-300' },
+  { value: ActivityType.FOOTBALL_TRAINING, label: 'Training',     icon: '⚽', color: 'border-green-600/50 bg-green-900/20 text-green-300' },
+  { value: ActivityType.FOOTBALL_MATCH,    label: 'Fball Match',  icon: '🏟️', color: 'border-green-600/50 bg-green-900/20 text-green-300' },
+  { value: ActivityType.FITNESS,           label: 'Fitness',      icon: '💪', color: 'border-purple-600/50 bg-purple-900/20 text-purple-300' },
+  { value: ActivityType.CUSTOM,            label: 'Custom',       icon: '🎯', color: 'border-slate-600/50 bg-slate-800/60 text-slate-300' },
 ]
 
 const DISTANCE_TYPES = new Set<ActivityType>([ActivityType.RUN, ActivityType.WALK, ActivityType.CYCLING])
@@ -121,7 +127,7 @@ export default function NewActivityPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [state, formAction, isPending] = useActionState(createActivityAction, initialState)
-  const [type, setType] = useState<ActivityType>(ActivityType.RUN)
+  const [type, setType] = useState<ActivityType>(ActivityType.PADEL)
   const [distanceRaw, setDistanceRaw] = useState('')
   const [showBio, setShowBio] = useState(false)
   const handledRef = useRef(false)
@@ -158,12 +164,9 @@ export default function NewActivityPage() {
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-white">Log Activity</h1>
-          <p className="text-xs text-slate-400">Earn points for every workout</p>
+          <h1 className="text-xl font-bold text-white">Log Match or Session</h1>
+          <p className="text-xs text-slate-400">Earn points for every match</p>
         </div>
-        <Link href="/app/activities/import-gpx" className="shrink-0 rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-500 hover:text-white transition-colors">
-          Import GPX
-        </Link>
       </div>
 
       {/* Points preview */}
@@ -300,8 +303,8 @@ export default function NewActivityPage() {
           )}
         </div>
 
-        {/* Match result & Elo — football matches only */}
-        {type === ActivityType.FOOTBALL_MATCH && (
+        {/* Match result & Elo — competitive matches */}
+        {([ActivityType.FOOTBALL_MATCH, ActivityType.PADEL, ActivityType.TENNIS, ActivityType.SQUASH, ActivityType.PICKLEBALL, ActivityType.BADMINTON, ActivityType.RACQUETBALL] as ActivityType[]).includes(type) && (
           <div className="rounded-2xl border border-slate-700/60 bg-slate-800/40 overflow-hidden">
             <div className="px-4 py-3 text-sm font-medium text-slate-300 flex items-center gap-2">
               <span>🏆</span> Match Result <span className="text-xs font-normal text-slate-500">(optional — updates Elo rating)</span>

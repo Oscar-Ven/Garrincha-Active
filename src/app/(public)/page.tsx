@@ -2,9 +2,9 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Garrincha Active — Train. Compete. Earn.',
+  title: 'Garrincha Active — Play. Compete. Earn.',
   description:
-    'Track your sports activities, earn points, compete in challenges, and unlock exclusive rewards on Garrincha Active.',
+    'Track your padel, tennis, squash and pickleball matches, earn points, compete in challenges, and unlock exclusive rewards on Garrincha Active.',
 }
 
 // ---------------------------------------------------------------------------
@@ -35,9 +35,9 @@ const features = [
         />
       </svg>
     ),
-    title: 'Activity Tracking',
+    title: 'Match & Session Tracking',
     description:
-      'Log runs, walks, cycling, football training, matches, and custom workouts. Track distance, duration, pace, and calories in one place.',
+      'Log padel, tennis, squash, pickleball, badminton, and racquetball matches. Track duration, effort, and calories in one place.',
   },
   {
     icon: (
@@ -107,9 +107,9 @@ const features = [
 const steps = [
   {
     number: '01',
-    title: 'Track Your Activities',
+    title: 'Log Your Matches',
     description:
-      'Log any sport — a morning run, a football match, a gym session. Our tracker captures distance, time, and effort automatically.',
+      'Log any racket sport — a padel game, a tennis match, a squash session. Our tracker captures duration, effort, and points automatically.',
   },
   {
     number: '02',
@@ -171,18 +171,19 @@ export default function LandingPage() {
         <div className="relative z-10 mx-auto max-w-7xl px-6 py-24 md:py-36 text-center">
           <div className="inline-flex items-center gap-2 bg-green-600/15 border border-green-600/30 text-green-400 text-xs font-semibold uppercase tracking-widest px-4 py-1.5 rounded-full mb-8">
             <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-            Now Live — Powered by Sport
+            Now Live — Built for Racket Sports
           </div>
 
           <h1 className="text-5xl md:text-7xl font-black text-white leading-none tracking-tight mb-6">
-            Train.{' '}
+            Play.{' '}
             <span className="text-green-500">Compete.</span>{' '}
             Earn.
           </h1>
 
           <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-400 leading-relaxed mb-10">
-            Garrincha Active turns every workout into a reward. Track your sports activities,
-            take on challenges with your community, and redeem points for real-world perks.
+            Garrincha Active turns every padel, tennis, and squash match into a reward. Track
+            your court sessions, take on challenges with your community, and redeem points for
+            real-world perks at Garrincha sports centres.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
@@ -222,11 +223,11 @@ export default function LandingPage() {
               Everything you need
             </p>
             <h2 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight">
-              Built for athletes who want more
+              Built for racket sport players
             </h2>
             <p className="max-w-2xl mx-auto mt-4 text-slate-500 text-lg">
-              From solo workouts to team championships — Garrincha Active has the tools to keep
-              you moving and motivated.
+              From solo drills to tournament finals — Garrincha Active has the tools to keep
+              you on the court and motivated.
             </p>
           </div>
 

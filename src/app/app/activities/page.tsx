@@ -8,8 +8,8 @@ import { ActivityCard } from '@/components/player/activity-card'
 import { cn, formatDistance, formatDuration, activityTypeLabel, activityTypeIcon } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'My Activities',
-  description: 'View and manage your activity history on Garrincha Active.',
+  title: 'My Matches & Sessions',
+  description: 'View and manage your match and session history on Garrincha Active.',
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -17,6 +17,12 @@ export const metadata: Metadata = {
 const PAGE_SIZE = 15
 
 const ALL_TYPES = [
+  ActivityType.PADEL,
+  ActivityType.TENNIS,
+  ActivityType.SQUASH,
+  ActivityType.PICKLEBALL,
+  ActivityType.BADMINTON,
+  ActivityType.RACQUETBALL,
   ActivityType.RUN,
   ActivityType.WALK,
   ActivityType.CYCLING,
@@ -430,28 +436,37 @@ export default async function ActivitiesPage({ searchParams }: PageProps) {
         {/* ── Page header ── */}
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">My Activities</h1>
+            <h1 className="text-2xl font-bold text-white sm:text-3xl">My Matches &amp; Sessions</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Track your fitness journey and see your progress over time.
+              Track your racket sport matches and sessions over time.
             </p>
           </div>
 
-          <Link
-            href="/app/activities/log"
-            className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-green-900/30 transition-colors hover:bg-green-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              aria-hidden="true"
+          <div className="flex items-center gap-2">
+            <Link
+              href="/app/activities/live"
+              className="inline-flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Log New Activity
-          </Link>
+              <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" aria-hidden="true" />
+              Record Live
+            </Link>
+            <Link
+              href="/app/activities/log"
+              className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-green-900/30 transition-colors hover:bg-green-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Log Activity
+            </Link>
+          </div>
         </div>
 
         {/* ── Total stats summary ── */}

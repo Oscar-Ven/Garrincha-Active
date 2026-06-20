@@ -8,6 +8,12 @@ export const POINTS_RULES: Record<ActivityType, number> = {
   FOOTBALL_MATCH: 80,
   FITNESS: 30,
   CUSTOM: 10,
+  PADEL: 60,
+  TENNIS: 60,
+  SQUASH: 50,
+  PICKLEBALL: 40,
+  BADMINTON: 40,
+  RACQUETBALL: 50,
 }
 
 export const MAX_DAILY_ACTIVITY_POINTS = 200
@@ -20,6 +26,12 @@ export const SUSPICIOUS_SPEED_THRESHOLDS: Record<ActivityType, number | null> = 
   FOOTBALL_MATCH: null,
   FITNESS: null,
   CUSTOM: null,
+  PADEL: null,
+  TENNIS: null,
+  SQUASH: null,
+  PICKLEBALL: null,
+  BADMINTON: null,
+  RACQUETBALL: null,
 }
 
 const DISTANCE_BASED_ACTIVITIES: ActivityType[] = [

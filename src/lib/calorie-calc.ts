@@ -9,6 +9,12 @@ const MET: Record<ActivityType, number> = {
   FOOTBALL_MATCH: 10.0,
   FITNESS: 6.0,
   CUSTOM: 5.0,
+  PADEL: 7.0,
+  TENNIS: 7.3,
+  SQUASH: 12.0,
+  PICKLEBALL: 4.5,
+  BADMINTON: 5.5,
+  RACQUETBALL: 10.0,
 }
 
 // Estimate calories: MET × weight(kg) × hours
