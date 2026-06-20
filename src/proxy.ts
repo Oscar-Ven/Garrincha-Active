@@ -1,8 +1,10 @@
 import { NextResponse, NextRequest } from 'next/server'
 
-const PROTECTED_ROUTES = ['/app', '/admin']
+const PROTECTED_ROUTES = ['/app', '/admin', '/owner']
 const ADMIN_ROUTES = ['/admin']
+const OWNER_ROUTES = ['/owner']
 const ADMIN_ROLES = ['PLATFORM_ADMIN', 'CENTER_ADMIN']
+const OWNER_ROLES = ['PLATFORM_OWNER']
 
 // Our session format: base64json.hexsig (2 parts split by last dot)
 function parseSessionCookie(cookieValue: string): { role?: string } | null {
@@ -45,7 +47,13 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  const isOwnerRoute = OWNER_ROUTES.some((route) => pathname.startsWith(route))
+
   if (isAdminRoute && !ADMIN_ROLES.includes(session.role ?? '')) {
+    return NextResponse.redirect(new URL('/app', request.url))
+  }
+
+  if (isOwnerRoute && !OWNER_ROLES.includes(session.role ?? '')) {
     return NextResponse.redirect(new URL('/app', request.url))
   }
 
