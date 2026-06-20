@@ -17,6 +17,16 @@ export const otpRatelimit = redis
   ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '10 m'), prefix: 'rl:otp' })
   : null
 
+// 5 auction bids per 60 seconds per user — prevent bid-spam
+export const auctionBidRatelimit = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '60 s'), prefix: 'rl:bid' })
+  : null
+
+// 3 geo check-in attempts per 30 seconds per user — prevent race-condition abuse
+export const checkinRatelimit = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '30 s'), prefix: 'rl:checkin' })
+  : null
+
 export async function checkRateLimit(
   limiter: Ratelimit | null,
   identifier: string,
