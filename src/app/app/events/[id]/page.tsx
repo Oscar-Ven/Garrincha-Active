@@ -160,10 +160,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             ) : isWaitlisted ? (
               <div className="space-y-3">
                 <div className="rounded-lg bg-yellow-900/30 border border-yellow-700/50 px-4 py-3 text-yellow-300 text-sm">
-                  <p className="font-semibold">You're on the waitlist</p>
+                  <p className="font-semibold">You&apos;re on the waitlist</p>
                   {waitlistPosition !== null && (
                     <p className="mt-1 text-yellow-400">
-                      You're #{waitlistPosition} on the waitlist. We'll notify you if a spot opens.
+                      You&apos;re #{waitlistPosition} on the waitlist. We&apos;ll notify you if a spot opens.
                     </p>
                   )}
                 </div>

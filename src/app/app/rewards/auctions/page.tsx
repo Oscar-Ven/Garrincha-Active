@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import { Gavel, Clock, Trophy } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDistanceToNow, isPast } from 'date-fns'
+import { auctionBidRatelimit } from '@/lib/redis'
 
 export const metadata = { title: 'Reward Auctions | Garrincha Active' }
 
@@ -13,6 +14,11 @@ async function placeBid(auctionId: string, points: number) {
   'use server'
   const user = await getCurrentUser()
   if (!user) redirect('/login')
+
+  if (auctionBidRatelimit) {
+    const { success } = await auctionBidRatelimit.limit(user.id)
+    if (!success) return
+  }
 
   const [auction, profile] = await Promise.all([
     prisma.rewardAuction.findUnique({
@@ -195,7 +201,7 @@ export default async function AuctionsPage() {
                     <p className="text-xs text-green-400 font-medium">✓ You are currently winning this auction</p>
                   )}
                   {myBid && !isLeading && (
-                    <p className="text-xs text-red-400">⚠️ You've been outbid! Raise your bid to stay in.</p>
+                    <p className="text-xs text-red-400">⚠️ You&apos;ve been outbid! Raise your bid to stay in.</p>
                   )}
                 </CardContent>
               </Card>

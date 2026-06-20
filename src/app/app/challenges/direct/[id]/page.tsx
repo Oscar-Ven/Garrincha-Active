@@ -90,7 +90,7 @@ export default async function DirectChallengeDetailPage({ params }: { params: Pr
 
       {challenge.message && (
         <div className="rounded-lg border border-orange-800/30 bg-orange-950/20 px-4 py-3 text-sm text-orange-200 italic">
-          "{challenge.message}"
+          &ldquo;{challenge.message}&rdquo;
         </div>
       )}
 

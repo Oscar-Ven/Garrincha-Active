@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { getSession, registerForSession, cancelRegistration } from '@/services/sessions'
 import { ActivityType } from '@/generated/prisma'
 import { activityTypeIcon, activityTypeLabel } from '@/lib/utils'
+import { PayButton } from '@/components/ui/pay-button'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -152,7 +153,7 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
               <div className="space-y-3">
                 {isWaitlisted && waitlistPosition !== null && (
                   <p className="text-sm text-yellow-400">
-                    You're #{waitlistPosition} on the waitlist. We'll notify you if a spot opens.
+                    You&apos;re #{waitlistPosition} on the waitlist. We&apos;ll notify you if a spot opens.
                   </p>
                 )}
                 <form action={handleCancel}>
@@ -165,18 +166,27 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
                 </form>
               </div>
             ) : !isAttended ? (
-              <form action={handleRegister}>
-                <button
-                  type="submit"
-                  className={`rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-colors ${
-                    isFull
-                      ? 'bg-yellow-600 hover:bg-yellow-500'
-                      : 'bg-green-600 hover:bg-green-500'
-                  }`}
-                >
-                  {isFull ? 'Join Waitlist' : 'Register'}
-                </button>
-              </form>
+              <div className="flex items-center gap-3">
+                <form action={handleRegister}>
+                  <button
+                    type="submit"
+                    className={`rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-colors ${
+                      isFull
+                        ? 'bg-yellow-600 hover:bg-yellow-500'
+                        : 'bg-green-600 hover:bg-green-500'
+                    }`}
+                  >
+                    {isFull ? 'Join Waitlist' : 'Register'}
+                  </button>
+                </form>
+                {session.price != null && Number(session.price) > 0 && (
+                  <PayButton
+                    sessionId={session.id}
+                    price={Math.round(Number(session.price) * 100)}
+                    description={session.title}
+                  />
+                )}
+              </div>
             ) : null}
           </div>
         )}

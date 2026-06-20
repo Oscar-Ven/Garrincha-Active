@@ -146,7 +146,7 @@ export default async function SegmentDetailPage({ params }: { params: Promise<{ 
           </div>
         ) : (
           <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800 px-5 py-4 text-center">
-            <p className="text-sm text-slate-400">You haven't attempted this segment yet.</p>
+            <p className="text-sm text-slate-400">You haven&apos;t attempted this segment yet.</p>
             <Link href="/app/activities/new" className="mt-3 inline-block rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
               Log Activity to Attempt
             </Link>

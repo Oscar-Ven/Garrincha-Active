@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -458,9 +459,9 @@ export default async function AdminSettingsPage({
                 password123
               </code>
               . Manage individual accounts via the{' '}
-              <a href="/admin/players" className="text-green-400 underline hover:text-green-300">
+              <Link href="/admin/players" className="text-green-400 underline hover:text-green-300">
                 Players
-              </a>{' '}
+              </Link>{' '}
               page.
             </p>
           </div>

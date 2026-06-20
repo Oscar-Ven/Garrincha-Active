@@ -115,7 +115,7 @@ export default async function DirectChallengePage() {
                   <p className="text-xs text-slate-400 mt-0.5">
                     {TYPE_LABELS[c.type]} · Target: {c.targetValue} · Ends {formatDistanceToNow(new Date(c.endDate), { addSuffix: true })}
                   </p>
-                  {c.message && <p className="text-xs text-slate-300 mt-1 italic">"{c.message}"</p>}
+                  {c.message && <p className="text-xs text-slate-300 mt-1 italic">&ldquo;{c.message}&rdquo;</p>}
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <form action={acceptChallenge.bind(null, c.id)}>

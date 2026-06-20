@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useActionState, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ActivityType, ActivityVisibility } from '@/generated/prisma'
 import { calculateActivityPoints, POINTS_RULES } from '@/lib/points-rules'
@@ -160,9 +161,9 @@ export default function NewActivityPage() {
           <h1 className="text-xl font-bold text-white">Log Activity</h1>
           <p className="text-xs text-slate-400">Earn points for every workout</p>
         </div>
-        <a href="/app/activities/import-gpx" className="shrink-0 rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-500 hover:text-white transition-colors">
+        <Link href="/app/activities/import-gpx" className="shrink-0 rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-500 hover:text-white transition-colors">
           Import GPX
-        </a>
+        </Link>
       </div>
 
       {/* Points preview */}
@@ -298,6 +299,31 @@ export default function NewActivityPage() {
             </div>
           )}
         </div>
+
+        {/* Match result & Elo — football matches only */}
+        {type === ActivityType.FOOTBALL_MATCH && (
+          <div className="rounded-2xl border border-slate-700/60 bg-slate-800/40 overflow-hidden">
+            <div className="px-4 py-3 text-sm font-medium text-slate-300 flex items-center gap-2">
+              <span>🏆</span> Match Result <span className="text-xs font-normal text-slate-500">(optional — updates Elo rating)</span>
+            </div>
+            <div className="border-t border-slate-700/60 px-4 py-4 space-y-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Opponent email</label>
+                <input name="opponentEmail" type="email" placeholder="opponent@example.com" disabled={isPending} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Outcome</label>
+                <select name="matchOutcome" disabled={isPending}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-green-600 disabled:opacity-50">
+                  <option value="">— Select —</option>
+                  <option value="win">Win</option>
+                  <option value="draw">Draw</option>
+                  <option value="loss">Loss</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Photo upload */}
         <div className="rounded-2xl border border-slate-700/60 bg-slate-800/40 p-4">
