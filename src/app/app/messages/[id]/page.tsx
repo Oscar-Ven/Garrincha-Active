@@ -34,44 +34,49 @@ export default async function MessageThreadPage({
     select: { id: true, name: true, nickname: true, avatarUrl: true },
   })
 
-  // Mark incoming messages as read
   await prisma.directMessage.updateMany({
     where: { conversationId: id, senderId: { not: user.id }, isRead: false },
     data: { isRead: true },
   })
 
   const displayName = otherUser?.nickname ?? otherUser?.name ?? 'User'
-  const initials = displayName[0]?.toUpperCase() ?? '?'
+  const inits = displayName[0]?.toUpperCase() ?? '?'
 
   return (
     <div className="mx-auto flex max-w-lg flex-col" style={{ height: 'calc(100dvh - 7rem)' }}>
       {/* Thread header */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-slate-800 pb-4 mb-4">
-        <Link href="/app/messages" className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
+      <div className="flex shrink-0 items-center gap-md border-b border-white/5 pb-md mb-md">
+        <Link
+          href="/app/messages"
+          className="flex h-9 w-9 items-center justify-center rounded-full glass-card text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>arrow_back</span>
         </Link>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br from-green-600 to-emerald-700 text-sm font-bold text-white overflow-hidden">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed text-sm font-bold overflow-hidden shrink-0">
           {otherUser?.avatarUrl
             ? <img src={otherUser.avatarUrl} alt="" className="h-full w-full object-cover" />
-            : initials
+            : inits
           }
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-white truncate">{displayName}</p>
+          <p className="text-body-md font-bold text-on-surface truncate">{displayName}</p>
         </div>
-        <Link href={`/app/players/${otherId}`} className="text-xs text-slate-400 hover:text-white transition-colors">
+        <Link href={`/app/players/${otherId}`} className="text-label-caps text-on-surface-variant hover:text-on-surface transition-colors shrink-0">
           View Profile
         </Link>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+      <div className="flex-1 overflow-y-auto space-y-sm pr-1 scrollbar-none">
         {conv.messages.length === 0 && (
           <div className="py-12 text-center">
-            <p className="text-2xl mb-2">👋</p>
-            <p className="text-sm text-slate-400">Send a message to start the conversation</p>
+            <span
+              className="material-symbols-outlined text-on-surface-variant"
+              style={{ fontSize: '32px', fontVariationSettings: "'FILL' 1" }}
+            >
+              waving_hand
+            </span>
+            <p className="text-label-caps text-on-surface-variant mt-sm">Send a message to start the conversation</p>
           </div>
         )}
 
@@ -81,24 +86,24 @@ export default async function MessageThreadPage({
             <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[75%] ${isMine ? '' : 'flex items-end gap-2'}`}>
                 {!isMine && (
-                  <div className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-green-600 to-emerald-700 text-xs font-bold text-white overflow-hidden">
+                  <div className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-container-highest text-on-surface text-xs font-bold overflow-hidden">
                     {otherUser?.avatarUrl
                       ? <img src={otherUser.avatarUrl} alt="" className="h-full w-full object-cover" />
-                      : initials
+                      : inits
                     }
                   </div>
                 )}
                 <div>
                   <div
-                    className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    className={`rounded-2xl px-md py-sm text-body-md leading-relaxed ${
                       isMine
-                        ? 'rounded-br-sm bg-green-600 text-white'
-                        : 'rounded-bl-sm bg-slate-800 text-slate-100'
+                        ? 'rounded-br-sm bg-primary-fixed text-on-primary-fixed'
+                        : 'rounded-bl-sm glass-card text-on-surface'
                     }`}
                   >
                     {msg.body}
                   </div>
-                  <p className={`mt-1 text-[10px] text-slate-500 ${isMine ? 'text-right' : 'text-left'}`}>
+                  <p className={`mt-1 text-label-caps text-on-surface-variant ${isMine ? 'text-right' : 'text-left'}`}>
                     {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
                   </p>
                 </div>
@@ -109,7 +114,7 @@ export default async function MessageThreadPage({
       </div>
 
       {/* Send form */}
-      <div className="shrink-0 -mx-4 mt-3">
+      <div className="shrink-0 -mx-4 mt-md">
         <SendForm conversationId={id} />
       </div>
     </div>

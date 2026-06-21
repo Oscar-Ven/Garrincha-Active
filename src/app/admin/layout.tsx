@@ -27,14 +27,14 @@ export default async function AdminLayout({
       : 'bg-green-600/20 text-green-400 border border-green-600/40'
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-950 text-white">
+    <div className="dark flex h-screen overflow-hidden bg-surface-container-lowest text-on-surface">
       {/* Sidebar: handles its own desktop + mobile rendering */}
       <AdminSidebar />
 
       {/* Main column */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Top bar — desktop only (mobile top bar is rendered inside AdminSidebar) */}
-        <header className="hidden lg:flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/90 px-6 backdrop-blur-md">
+        <header className="hidden lg:flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-surface-container/90 px-6 backdrop-blur-md">
           {/* Left: section title */}
           <h1 className="text-sm font-semibold tracking-wide text-white">
             Garrincha Admin
@@ -47,7 +47,7 @@ export default async function AdminLayout({
             >
               {roleLabel}
             </span>
-            <span className="hidden xl:block max-w-45 truncate text-xs text-slate-400">
+            <span className="hidden xl:block max-w-45 truncate text-xs text-on-surface-variant">
               {user.email}
             </span>
             <LogoutButton />

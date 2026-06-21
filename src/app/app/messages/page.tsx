@@ -50,32 +50,34 @@ export default async function MessagesPage() {
   const totalUnread = unreadGroups.reduce((sum, r) => sum + r._count.id, 0)
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-lg space-y-lg">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">Messages</h1>
-          {totalUnread > 0 && (
-            <span className="rounded-full bg-green-500 px-2 py-0.5 text-xs font-bold text-white">
-              {totalUnread}
-            </span>
-          )}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-headline-md font-black italic tracking-tight text-primary-fixed">Messages</h1>
+          <p className="text-label-caps text-on-surface-variant mt-xs">
+            {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+          </p>
         </div>
-        <p className="mt-1 text-sm text-slate-400">
-          {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
-        </p>
+        {totalUnread > 0 && (
+          <span className="rounded-full bg-primary-fixed text-on-primary-fixed px-2 py-0.5 text-label-caps font-bold">
+            {totalUnread}
+          </span>
+        )}
       </div>
 
       {conversations.length === 0 ? (
-        <div className="rounded-xl border border-slate-700 bg-slate-800 px-6 py-16 text-center">
-          <p className="mb-3 text-3xl">💬</p>
-          <p className="font-semibold text-white">No messages yet</p>
-          <p className="mt-1 text-sm text-slate-400">
+        <div className="glass-card rounded-xl px-6 py-16 flex flex-col items-center text-center border border-dashed border-white/10">
+          <span className="material-symbols-outlined text-on-surface-variant mb-sm" style={{ fontSize: '40px' }}>
+            chat_bubble
+          </span>
+          <p className="text-body-md font-bold text-on-surface">No messages yet</p>
+          <p className="text-label-caps text-on-surface-variant mt-xs">
             Message a player from their profile page or the community feed
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+        <div className="glass-card rounded-xl divide-y divide-white/5 overflow-hidden">
           {conversations.map((conv) => {
             const otherId =
               conv.participantA === user.id ? conv.participantB : conv.participantA
@@ -83,25 +85,25 @@ export default async function MessagesPage() {
             const lastMsg = conv.messages[0]
             const unread = unreadMap.get(conv.id) ?? 0
             const displayName = other?.nickname ?? other?.name ?? 'Unknown User'
-            const initials = displayName[0]?.toUpperCase() ?? '?'
+            const inits = displayName[0]?.toUpperCase() ?? '?'
 
             return (
               <Link
                 key={conv.id}
                 href={`/app/messages/${conv.id}`}
-                className="flex items-center gap-3 px-4 py-4 hover:bg-slate-800 transition-colors active:bg-slate-800"
+                className="flex items-center gap-md px-md py-md hover:bg-surface-container-high transition-colors active:bg-surface-container-high"
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-green-600 to-emerald-700 text-lg font-bold text-white">
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary-fixed text-on-primary-fixed text-sm font-bold">
                     {other?.avatarUrl ? (
                       <img src={other.avatarUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      initials
+                      inits
                     )}
                   </div>
                   {unread > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white">
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary-fixed text-on-primary-fixed text-[10px] font-bold">
                       {unread > 9 ? '9+' : unread}
                     </span>
                   )}
@@ -110,39 +112,26 @@ export default async function MessagesPage() {
                 {/* Content */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`truncate font-semibold ${unread > 0 ? 'text-white' : 'text-slate-200'}`}
-                    >
+                    <span className={`truncate text-body-md font-bold ${unread > 0 ? 'text-white' : 'text-on-surface'}`}>
                       {displayName}
                     </span>
                     {lastMsg && (
-                      <span className="shrink-0 text-xs text-slate-500">
+                      <span className="shrink-0 text-label-caps text-on-surface-variant">
                         {formatDistanceToNow(new Date(lastMsg.createdAt), { addSuffix: true })}
                       </span>
                     )}
                   </div>
                   {lastMsg && (
-                    <p
-                      className={`mt-0.5 truncate text-sm ${
-                        unread > 0 ? 'font-medium text-slate-300' : 'text-slate-500'
-                      }`}
-                    >
+                    <p className={`mt-0.5 truncate text-label-caps ${unread > 0 ? 'text-on-surface' : 'text-on-surface-variant'}`}>
                       {lastMsg.senderId === user.id ? 'You: ' : ''}
                       {lastMsg.body}
                     </p>
                   )}
                 </div>
 
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 shrink-0 text-slate-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
+                <span className="material-symbols-outlined text-on-surface-variant shrink-0" style={{ fontSize: '18px' }}>
+                  chevron_right
+                </span>
               </Link>
             )
           })}
