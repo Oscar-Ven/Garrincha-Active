@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth'
 import { awardPoints } from '@/services/points'
 import { PointsSourceType } from '@/generated/prisma'
+import { checkinRatelimit } from '@/lib/redis'
 
 const CHECK_IN_POINTS = 50
 
@@ -45,6 +46,11 @@ export type GeoCheckInResult =
 export async function geoCheckIn(centerId: string, lat: number, lng: number): Promise<GeoCheckInResult> {
   const user = await getCurrentUser()
   if (!user) return { ok: false, reason: 'UNAUTHENTICATED' }
+
+  if (checkinRatelimit) {
+    const { success } = await checkinRatelimit.limit(user.id)
+    if (!success) return { ok: false, reason: 'COOLDOWN' }
+  }
 
   // Re-verify center and distance server-side
   const center = await prisma.center.findUnique({

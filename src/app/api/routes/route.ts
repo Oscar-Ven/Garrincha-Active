@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { ActivityType } from '@/generated/prisma'
+import { catchApiError } from '@/lib/api-error'
 
 const waypointSchema = z.object({
   sequence: z.number().int().min(1),
@@ -22,40 +23,44 @@ const createRouteSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const user = await getCurrentUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json().catch(() => null)
-  if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    const body = await req.json().catch(() => null)
+    if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
 
-  const parsed = createRouteSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid data' }, { status: 422 })
-  }
+    const parsed = createRouteSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid data' }, { status: 422 })
+    }
 
-  const { title, description, type, distanceKm, elevationM, difficulty, waypoints } = parsed.data
+    const { title, description, type, distanceKm, elevationM, difficulty, waypoints } = parsed.data
 
-  const route = await prisma.route.create({
-    data: {
-      title,
-      description: description ?? null,
-      type,
-      distanceKm,
-      elevationM: elevationM ?? null,
-      difficulty: difficulty ?? null,
-      createdById: user.id,
-      isPublic: true,
-      points: {
-        create: waypoints.map((wp) => ({
-          sequence: wp.sequence,
-          lat: wp.lat,
-          lng: wp.lng,
-          elevM: wp.elevM ?? null,
-        })),
+    const route = await prisma.route.create({
+      data: {
+        title,
+        description: description ?? null,
+        type,
+        distanceKm,
+        elevationM: elevationM ?? null,
+        difficulty: difficulty ?? null,
+        createdById: user.id,
+        isPublic: true,
+        points: {
+          create: waypoints.map((wp) => ({
+            sequence: wp.sequence,
+            lat: wp.lat,
+            lng: wp.lng,
+            elevM: wp.elevM ?? null,
+          })),
+        },
       },
-    },
-    select: { id: true },
-  })
+      select: { id: true },
+    })
 
-  return NextResponse.json({ id: route.id })
+    return NextResponse.json({ id: route.id })
+  } catch (err) {
+    return catchApiError(err)
+  }
 }

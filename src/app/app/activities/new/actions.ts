@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { getCurrentUser } from '@/lib/auth'
 import { createActivity } from '@/services/activities'
+import { estimateCalories } from '@/lib/calorie-calc'
+import { eloUpdate } from '@/lib/elo'
 import { uploadActivityMedia } from '@/services/upload-service'
 import { ActivityType, ActivityVisibility } from '@/generated/prisma'
 import { prisma } from '@/lib/db'
@@ -108,6 +110,7 @@ export async function createActivityAction(
       cadence: parsed.cadence,
       powerWatts: parsed.powerWatts,
       temperature: parsed.temperature,
+      caloriesBurned: estimateCalories(parsed.type, parsed.durationMinutes),
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
@@ -129,6 +132,26 @@ export async function createActivityAction(
     await Promise.allSettled(
       validPhotos.slice(0, 5).map((f) => uploadActivityMedia(user.id, activity.id, f)),
     )
+  }
+
+  // Elo update for football matches (non-blocking, best-effort)
+  const opponentEmail = formData.get('opponentEmail') as string | null
+  const matchOutcome = formData.get('matchOutcome') as string | null
+  if (parsed.type === ActivityType.FOOTBALL_MATCH && opponentEmail && matchOutcome && ['win','draw','loss'].includes(matchOutcome)) {
+    try {
+      const opponent = await prisma.user.findUnique({ where: { email: opponentEmail }, select: { id: true } })
+      if (opponent && opponent.id !== user.id) {
+        const [myP, theirP] = await Promise.all([
+          prisma.playerProfile.findUnique({ where: { userId: user.id }, select: { eloRating: true } }),
+          prisma.playerProfile.findUnique({ where: { userId: opponent.id }, select: { eloRating: true } }),
+        ])
+        const { newA, newB } = eloUpdate(myP?.eloRating ?? 1000, theirP?.eloRating ?? 1000, matchOutcome as 'win'|'draw'|'loss')
+        await Promise.all([
+          prisma.playerProfile.upsert({ where: { userId: user.id }, create: { userId: user.id, eloRating: newA }, update: { eloRating: newA } }),
+          prisma.playerProfile.upsert({ where: { userId: opponent.id }, create: { userId: opponent.id, eloRating: newB }, update: { eloRating: newB } }),
+        ])
+      }
+    } catch { /* non-critical */ }
   }
 
   return { success: true, pointsEarned: activity.pointsEarned }

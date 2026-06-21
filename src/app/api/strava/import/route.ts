@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { ActivityType } from '@/generated/prisma'
+import { catchApiError } from '@/lib/api-error'
 
 // Map Strava activity types to our ActivityType enum
 function mapStravaType(stravaType: string): ActivityType {
@@ -68,93 +69,97 @@ async function refreshStravaToken(oauthAccountId: string, refreshToken: string) 
 }
 
 export async function POST() {
-  const session = await getCurrentUser()
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  try {
+    const session = await getCurrentUser()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-  // Find Strava OAuth account for this user
-  const stravaAccount = await prisma.oAuthAccount.findFirst({
-    where: { userId: session.id, provider: 'strava' },
-  })
+    // Find Strava OAuth account for this user
+    const stravaAccount = await prisma.oAuthAccount.findFirst({
+      where: { userId: session.id, provider: 'strava' },
+    })
 
-  if (!stravaAccount || !stravaAccount.accessToken) {
-    return NextResponse.json(
-      { error: 'Strava not connected. Please connect your Strava account first.' },
-      { status: 400 },
-    )
-  }
-
-  // Refresh token if expired (or about to expire within 60 seconds)
-  let accessToken = stravaAccount.accessToken
-  const isExpired =
-    stravaAccount.expiresAt && stravaAccount.expiresAt.getTime() < Date.now() + 60_000
-
-  if (isExpired && stravaAccount.refreshToken) {
-    try {
-      accessToken = await refreshStravaToken(stravaAccount.id, stravaAccount.refreshToken)
-    } catch {
+    if (!stravaAccount || !stravaAccount.accessToken) {
       return NextResponse.json(
-        { error: 'Strava token refresh failed. Please reconnect your Strava account.' },
+        { error: 'Strava not connected. Please connect your Strava account first.' },
         { status: 400 },
       )
     }
-  }
 
-  // Fetch recent activities from Strava
-  const activitiesRes = await fetch(
-    'https://www.strava.com/api/v3/athlete/activities?per_page=30',
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  )
+    // Refresh token if expired (or about to expire within 60 seconds)
+    let accessToken = stravaAccount.accessToken
+    const isExpired =
+      stravaAccount.expiresAt && stravaAccount.expiresAt.getTime() < Date.now() + 60_000
 
-  if (!activitiesRes.ok) {
-    return NextResponse.json(
-      { error: 'Failed to fetch activities from Strava.' },
-      { status: 502 },
-    )
-  }
-
-  const stravaActivities: StravaActivity[] = await activitiesRes.json()
-
-  if (!Array.isArray(stravaActivities)) {
-    return NextResponse.json({ error: 'Unexpected response from Strava.' }, { status: 502 })
-  }
-
-  let imported = 0
-  let skipped = 0
-
-  for (const sa of stravaActivities) {
-    const stravaActivityId = sa.id.toString()
-
-    // Skip if already imported
-    const existing = await prisma.activity.findUnique({
-      where: { stravaActivityId },
-    })
-    if (existing) {
-      skipped++
-      continue
+    if (isExpired && stravaAccount.refreshToken) {
+      try {
+        accessToken = await refreshStravaToken(stravaAccount.id, stravaAccount.refreshToken)
+      } catch {
+        return NextResponse.json(
+          { error: 'Strava token refresh failed. Please reconnect your Strava account.' },
+          { status: 400 },
+        )
+      }
     }
 
-    const durationMinutes = Math.max(1, Math.round(sa.moving_time / 60))
-    const distanceKm = sa.distance > 0 ? sa.distance / 1000 : null
+    // Fetch recent activities from Strava
+    const activitiesRes = await fetch(
+      'https://www.strava.com/api/v3/athlete/activities?per_page=30',
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    )
 
-    await prisma.activity.create({
-      data: {
-        userId: session.id,
-        title: sa.name || 'Strava Activity',
-        type: mapStravaType(sa.sport_type ?? sa.type),
-        startedAt: new Date(sa.start_date),
-        durationMinutes,
-        distanceKm,
-        elevationGainM: sa.total_elevation_gain ?? null,
-        heartRateAvg: sa.average_heartrate ? Math.round(sa.average_heartrate) : null,
-        stravaActivityId,
-        status: 'APPROVED',
-        pointsEarned: 0,
-      },
-    })
-    imported++
+    if (!activitiesRes.ok) {
+      return NextResponse.json(
+        { error: 'Failed to fetch activities from Strava.' },
+        { status: 502 },
+      )
+    }
+
+    const stravaActivities: StravaActivity[] = await activitiesRes.json()
+
+    if (!Array.isArray(stravaActivities)) {
+      return NextResponse.json({ error: 'Unexpected response from Strava.' }, { status: 502 })
+    }
+
+    let imported = 0
+    let skipped = 0
+
+    for (const sa of stravaActivities) {
+      const stravaActivityId = sa.id.toString()
+
+      // Skip if already imported
+      const existing = await prisma.activity.findUnique({
+        where: { stravaActivityId },
+      })
+      if (existing) {
+        skipped++
+        continue
+      }
+
+      const durationMinutes = Math.max(1, Math.round(sa.moving_time / 60))
+      const distanceKm = sa.distance > 0 ? sa.distance / 1000 : null
+
+      await prisma.activity.create({
+        data: {
+          userId: session.id,
+          title: sa.name || 'Strava Activity',
+          type: mapStravaType(sa.sport_type ?? sa.type),
+          startedAt: new Date(sa.start_date),
+          durationMinutes,
+          distanceKm,
+          elevationGainM: sa.total_elevation_gain ?? null,
+          heartRateAvg: sa.average_heartrate ? Math.round(sa.average_heartrate) : null,
+          stravaActivityId,
+          status: 'APPROVED',
+          pointsEarned: 0,
+        },
+      })
+      imported++
+    }
+
+    return NextResponse.json({ imported, skipped })
+  } catch (err) {
+    return catchApiError(err)
   }
-
-  return NextResponse.json({ imported, skipped })
 }

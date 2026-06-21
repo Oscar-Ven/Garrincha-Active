@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select'
 import { cn, formatDateTime } from '@/lib/utils'
 import { createEventAction, updateEventStatusAction, markAttendanceAction } from './actions'
+import Link from 'next/link'
 import { Plus, CheckCircle2, Users, Calendar, MapPin, Trophy } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -616,7 +617,18 @@ export function EventsTable({
                     />
                   </td>
                   <td className="py-3 px-4">
-                    <StatusActions eventId={event.id} currentStatus={event.status} />
+                    <div className="flex flex-col gap-2">
+                      <StatusActions eventId={event.id} currentStatus={event.status} />
+                      {event.isTournament && (
+                        <Link
+                          href={`/admin/events/${event.id}/bracket`}
+                          className="inline-flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 transition-colors font-medium"
+                        >
+                          <Trophy className="h-3 w-3" />
+                          Manage Bracket
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )

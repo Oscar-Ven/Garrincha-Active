@@ -3,49 +3,28 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard,
-  Users,
-  Building2,
-  Activity,
-  Gift,
-  Ticket,
-  Trophy,
-  Calendar,
-  Shield,
-  Star,
-  Eye,
-  FileBarChart,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Menu,
-  X,
-  Flag,
-  Map,
-  Gavel,
-  CalendarCheck,
-} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const navItems = [
-  { label: 'Overview', href: '/admin', icon: LayoutDashboard },
-  { label: 'Players', href: '/admin/players', icon: Users },
-  { label: 'Centers', href: '/admin/centers', icon: Building2 },
-  { label: 'Activities', href: '/admin/activities', icon: Activity },
-  { label: 'Segments', href: '/admin/segments', icon: Flag },
-  { label: 'Routes', href: '/admin/routes', icon: Map },
-  { label: 'Rewards', href: '/admin/rewards', icon: Gift },
-  { label: 'Auctions', href: '/admin/rewards/auctions', icon: Gavel },
-  { label: 'Redemptions', href: '/admin/redemptions', icon: Ticket },
-  { label: 'Challenges', href: '/admin/challenges', icon: Trophy },
-  { label: 'Events', href: '/admin/events', icon: Calendar },
-  { label: 'Sessions', href: '/admin/sessions', icon: CalendarCheck },
-  { label: 'Teams', href: '/admin/teams', icon: Shield },
-  { label: 'Sponsors', href: '/admin/sponsors', icon: Star },
-  { label: 'Moderation', href: '/admin/moderation', icon: Eye },
-  { label: 'Reports', href: '/admin/reports', icon: FileBarChart },
-  { label: 'Settings', href: '/admin/settings', icon: Settings },
+const navItems: { label: string; href: string; icon: string }[] = [
+  { label: 'Overview',    href: '/admin',                  icon: 'dashboard' },
+  { label: 'Players',     href: '/admin/players',          icon: 'group' },
+  { label: 'Centers',     href: '/admin/centers',          icon: 'location_city' },
+  { label: 'Activities',  href: '/admin/activities',       icon: 'bolt' },
+  { label: 'Segments',    href: '/admin/segments',         icon: 'flag' },
+  { label: 'Routes',      href: '/admin/routes',           icon: 'map' },
+  { label: 'Rewards',     href: '/admin/rewards',          icon: 'redeem' },
+  { label: 'Auctions',    href: '/admin/rewards/auctions', icon: 'gavel' },
+  { label: 'Redemptions', href: '/admin/redemptions',      icon: 'confirmation_number' },
+  { label: 'Challenges',  href: '/admin/challenges',       icon: 'emoji_events' },
+  { label: 'Events',      href: '/admin/events',           icon: 'event' },
+  { label: 'Sessions',    href: '/admin/sessions',         icon: 'event_available' },
+  { label: 'Memberships', href: '/admin/memberships',      icon: 'credit_card' },
+  { label: 'Courts',      href: '/admin/courts',           icon: 'location_on' },
+  { label: 'Teams',       href: '/admin/teams',            icon: 'shield' },
+  { label: 'Sponsors',    href: '/admin/sponsors',         icon: 'grade' },
+  { label: 'Moderation',  href: '/admin/moderation',       icon: 'visibility' },
+  { label: 'Reports',     href: '/admin/reports',          icon: 'bar_chart' },
+  { label: 'Settings',    href: '/admin/settings',         icon: 'settings' },
 ]
 
 function isRouteActive(pathname: string, href: string): boolean {
@@ -58,7 +37,14 @@ function isRouteActive(pathname: string, href: string): boolean {
 // ─── Logo Mark ────────────────────────────────────────────────────────────────
 
 function LogoMark({ className }: { className?: string }) {
-  return <Shield className={cn('h-5 w-5', className)} />
+  return (
+    <span
+      className={cn('material-symbols-outlined', className)}
+      style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}
+    >
+      bolt
+    </span>
+  )
 }
 
 // ─── Desktop Sidebar ──────────────────────────────────────────────────────────
@@ -73,7 +59,7 @@ function DesktopSidebar({ pathname, collapsed, onToggle }: DesktopSidebarProps) 
   return (
     <aside
       className={cn(
-        'hidden lg:flex flex-col h-screen sticky top-0 bg-slate-900 border-r border-white/10 transition-all duration-300 ease-in-out',
+        'hidden lg:flex flex-col h-screen sticky top-0 bg-surface-container-lowest border-r border-white/10 transition-all duration-300 ease-in-out',
         collapsed ? 'w-16' : 'w-60'
       )}
     >
@@ -87,17 +73,17 @@ function DesktopSidebar({ pathname, collapsed, onToggle }: DesktopSidebarProps) 
         {!collapsed && (
           <Link
             href="/admin"
-            className="flex items-center gap-2 text-white font-bold text-lg tracking-tight min-w-0"
+            className="flex items-center gap-2 text-on-surface font-bold text-lg tracking-tight min-w-0"
           >
-            <LogoMark className="text-green-500 shrink-0" />
+            <LogoMark className="text-primary-fixed shrink-0" />
             <span className="truncate">
-              Garrincha <span className="text-green-500">Admin</span>
+              Garrincha <span className="text-primary-fixed">Admin</span>
             </span>
           </Link>
         )}
         {collapsed && (
           <Link href="/admin" aria-label="Admin overview">
-            <LogoMark className="text-green-500" />
+            <LogoMark className="text-primary-fixed" />
           </Link>
         )}
         <button
@@ -105,11 +91,11 @@ function DesktopSidebar({ pathname, collapsed, onToggle }: DesktopSidebarProps) 
           onClick={onToggle}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className={cn(
-            'shrink-0 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white',
+            'shrink-0 rounded-md p-1.5 text-on-surface-variant transition-colors hover:bg-white/10 hover:text-on-surface',
             collapsed && 'hidden'
           )}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_left</span>
         </button>
       </div>
 
@@ -119,15 +105,15 @@ function DesktopSidebar({ pathname, collapsed, onToggle }: DesktopSidebarProps) 
           type="button"
           onClick={onToggle}
           aria-label="Expand sidebar"
-          className="mx-auto mt-2 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+          className="mx-auto mt-2 rounded-md p-1.5 text-on-surface-variant transition-colors hover:bg-white/10 hover:text-on-surface"
         >
-          <ChevronRight className="h-4 w-4" />
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_right</span>
         </button>
       )}
 
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {navItems.map(({ label, href, icon: Icon }) => {
+        {navItems.map(({ label, href, icon }) => {
           const active = isRouteActive(pathname, href)
           return (
             <Link
@@ -137,12 +123,17 @@ function DesktopSidebar({ pathname, collapsed, onToggle }: DesktopSidebarProps) 
               className={cn(
                 'flex items-center gap-3 rounded-md px-2 py-2.5 text-sm font-medium transition-colors',
                 active
-                  ? 'bg-green-600 text-white'
-                  : 'text-slate-400 hover:bg-white/10 hover:text-white',
+                  ? 'bg-primary-fixed/10 text-primary-fixed'
+                  : 'text-on-surface-variant hover:bg-white/10 hover:text-on-surface',
                 collapsed && 'justify-center px-2'
               )}
             >
-              <Icon className="h-5 w-5 shrink-0" />
+              <span
+                className="material-symbols-outlined shrink-0"
+                style={{ fontSize: '20px', fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}
+              >
+                {icon}
+              </span>
               {!collapsed && <span className="truncate">{label}</span>}
             </Link>
           )
@@ -152,13 +143,13 @@ function DesktopSidebar({ pathname, collapsed, onToggle }: DesktopSidebarProps) 
       {/* Bottom branding strip */}
       <div className="border-t border-white/10 p-3 shrink-0">
         {!collapsed && (
-          <p className="text-xs text-slate-500 text-center tracking-wide uppercase select-none">
+          <p className="text-xs text-on-surface-variant text-center tracking-wide uppercase select-none">
             Platform Admin
           </p>
         )}
         {collapsed && (
           <div className="flex justify-center">
-            <LogoMark className="text-slate-600 h-4 w-4" />
+            <LogoMark className="text-on-surface-variant opacity-40" />
           </div>
         )}
       </div>
@@ -175,12 +166,10 @@ interface MobileDrawerProps {
 }
 
 function MobileDrawer({ pathname, open, onClose }: MobileDrawerProps) {
-  // Close on route change
   useEffect(() => {
     onClose()
   }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Prevent body scroll when open
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden'
@@ -208,7 +197,7 @@ function MobileDrawer({ pathname, open, onClose }: MobileDrawerProps) {
       <aside
         aria-label="Admin navigation"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-surface-container-lowest shadow-2xl transition-transform duration-300 ease-in-out lg:hidden',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -216,27 +205,27 @@ function MobileDrawer({ pathname, open, onClose }: MobileDrawerProps) {
         <div className="flex h-16 items-center justify-between border-b border-white/10 px-4 shrink-0">
           <Link
             href="/admin"
-            className="flex items-center gap-2 text-white font-bold text-lg tracking-tight"
+            className="flex items-center gap-2 text-on-surface font-bold text-lg tracking-tight"
             onClick={onClose}
           >
-            <LogoMark className="text-green-500" />
+            <LogoMark className="text-primary-fixed" />
             <span>
-              Garrincha <span className="text-green-500">Admin</span>
+              Garrincha <span className="text-primary-fixed">Admin</span>
             </span>
           </Link>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close navigation"
-            className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-md p-1.5 text-on-surface-variant transition-colors hover:bg-white/10 hover:text-on-surface"
           >
-            <X className="h-5 w-5" />
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
           </button>
         </div>
 
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          {navItems.map(({ label, href, icon: Icon }) => {
+          {navItems.map(({ label, href, icon }) => {
             const active = isRouteActive(pathname, href)
             return (
               <Link
@@ -246,11 +235,16 @@ function MobileDrawer({ pathname, open, onClose }: MobileDrawerProps) {
                 className={cn(
                   'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
                   active
-                    ? 'bg-green-600 text-white'
-                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                    ? 'bg-primary-fixed/10 text-primary-fixed'
+                    : 'text-on-surface-variant hover:bg-white/10 hover:text-on-surface'
                 )}
               >
-                <Icon className="h-5 w-5 shrink-0" />
+                <span
+                  className="material-symbols-outlined shrink-0"
+                  style={{ fontSize: '20px', fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}
+                >
+                  {icon}
+                </span>
                 <span>{label}</span>
               </Link>
             )
@@ -259,7 +253,7 @@ function MobileDrawer({ pathname, open, onClose }: MobileDrawerProps) {
 
         {/* Bottom branding strip */}
         <div className="border-t border-white/10 p-4 shrink-0">
-          <p className="text-xs text-slate-500 text-center tracking-wide uppercase select-none">
+          <p className="text-xs text-on-surface-variant text-center tracking-wide uppercase select-none">
             Platform Admin
           </p>
         </div>
@@ -276,25 +270,24 @@ interface MobileTopBarProps {
 
 function MobileTopBar({ onOpen }: MobileTopBarProps) {
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/10 bg-slate-900/90 px-4 backdrop-blur-md lg:hidden">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/10 bg-surface-container-lowest/90 px-4 backdrop-blur-md lg:hidden">
       <button
         type="button"
         onClick={onOpen}
         aria-label="Open navigation"
-        className="rounded-md p-2 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+        className="rounded-md p-2 text-on-surface-variant transition-colors hover:bg-white/10 hover:text-on-surface"
       >
-        <Menu className="h-5 w-5" />
+        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>menu</span>
       </button>
       <Link
         href="/admin"
-        className="flex items-center gap-1.5 text-base font-bold tracking-tight text-white"
+        className="flex items-center gap-1.5 text-base font-bold tracking-tight text-on-surface"
       >
-        <LogoMark className="text-green-500 h-4 w-4" />
+        <LogoMark className="text-primary-fixed" />
         <span>
-          Garrincha <span className="text-green-500">Admin</span>
+          Garrincha <span className="text-primary-fixed">Admin</span>
         </span>
       </Link>
-      {/* Spacer to balance the hamburger */}
       <div className="w-9" aria-hidden="true" />
     </header>
   )
@@ -309,17 +302,12 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* Desktop sidebar */}
       <DesktopSidebar
         pathname={pathname}
         collapsed={collapsed}
         onToggle={() => setCollapsed((prev) => !prev)}
       />
-
-      {/* Mobile top bar (visible on small screens) */}
       <MobileTopBar onOpen={() => setDrawerOpen(true)} />
-
-      {/* Mobile slide-out drawer */}
       <MobileDrawer
         pathname={pathname}
         open={drawerOpen}

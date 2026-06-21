@@ -4,12 +4,43 @@ import { notFound } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth'
-import { Badge } from '@/components/ui/badge'
-import { cn, activityTypeLabel, activityTypeIcon, formatDate, formatDateTime, formatDuration, formatDistance, formatPace } from '@/lib/utils'
+import { cn, activityTypeLabel, formatDate, formatDateTime, formatDuration, formatDistance, formatPace } from '@/lib/utils'
 import { ActivityStatus, ActivityType } from '@/generated/prisma'
+import { HRZonesDisplay } from '@/components/ui/hr-zones-display'
+import { ShareActivityButton } from './ShareActivityButton'
 import { formatDistanceToNow } from 'date-fns'
 import { ActivityMap } from '@/components/maps/ActivityMap'
 import { KudosButton } from './KudosButton'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function activitySymbol(type: ActivityType): string {
+  const map: Partial<Record<ActivityType, string>> = {
+    PADEL: 'sports_tennis', TENNIS: 'sports_tennis', PICKLEBALL: 'sports_tennis',
+    SQUASH: 'sports_handball', RACQUETBALL: 'sports_handball',
+    BADMINTON: 'sports_badminton',
+    RUN: 'directions_run', WALK: 'directions_walk',
+    CYCLING: 'directions_bike',
+    FOOTBALL_TRAINING: 'sports_soccer', FOOTBALL_MATCH: 'sports_soccer',
+    FITNESS: 'fitness_center', CUSTOM: 'sports',
+  }
+  return map[type] ?? 'sports'
+}
+
+function activityTypeBadgeClass(type: ActivityType): string {
+  switch (type) {
+    case ActivityType.FOOTBALL_MATCH:
+    case ActivityType.FOOTBALL_TRAINING:
+      return 'border-primary-fixed/40 bg-primary-fixed/10 text-primary-fixed'
+    case ActivityType.RUN:
+    case ActivityType.CYCLING:
+      return 'border-secondary/40 bg-secondary/10 text-secondary'
+    case ActivityType.FITNESS:
+      return 'border-[#FFD700]/40 bg-[#FFD700]/10 text-[#FFD700]'
+    default:
+      return 'glass-card text-on-surface-variant'
+  }
+}
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -64,29 +95,16 @@ async function getActivity(id: string) {
 
 type Activity = NonNullable<Awaited<ReturnType<typeof getActivity>>>
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function activityTypeBadgeVariant(type: ActivityType): 'default' | 'secondary' | 'gold' | 'outline' {
-  switch (type) {
-    case ActivityType.FOOTBALL_MATCH:
-    case ActivityType.FOOTBALL_TRAINING: return 'default'
-    case ActivityType.RUN:
-    case ActivityType.CYCLING: return 'secondary'
-    case ActivityType.FITNESS: return 'gold'
-    default: return 'outline'
-  }
-}
-
 function statusBadge(status: ActivityStatus) {
   switch (status) {
     case ActivityStatus.APPROVED:
-      return <span className="inline-flex items-center gap-1.5 rounded-full border border-green-600/40 bg-green-600/10 px-3 py-1 text-xs font-semibold text-green-400"><span className="h-1.5 w-1.5 rounded-full bg-green-400" />Approved</span>
+      return <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-fixed/40 bg-primary-fixed/10 px-3 py-1 text-xs font-semibold text-primary-fixed"><span className="h-1.5 w-1.5 rounded-full bg-primary-fixed" />Approved</span>
     case ActivityStatus.PENDING:
       return <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" />Pending Review</span>
     case ActivityStatus.FLAGGED:
       return <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400"><span className="h-1.5 w-1.5 rounded-full bg-red-400" />Flagged</span>
     case ActivityStatus.REJECTED:
-      return <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-700/50 px-3 py-1 text-xs font-semibold text-slate-400"><span className="h-1.5 w-1.5 rounded-full bg-slate-500" />Rejected</span>
+      return <span className="inline-flex items-center gap-1.5 rounded-full glass-card border px-3 py-1 text-xs font-semibold text-on-surface-variant"><span className="h-1.5 w-1.5 rounded-full bg-on-surface-variant/60" />Rejected</span>
   }
 }
 
@@ -102,10 +120,10 @@ const PR_LABELS: Record<string, string> = {
 
 function StatItem({ icon, label, value, subValue }: { icon: React.ReactNode; label: string; value: string; subValue?: string }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3">
-      <div className="flex items-center gap-2 text-slate-400">{icon}<span className="text-xs font-medium uppercase tracking-wide">{label}</span></div>
-      <p className="text-lg font-bold text-white">{value}</p>
-      {subValue && <p className="text-xs text-slate-500">{subValue}</p>}
+    <div className="glass-card flex flex-col gap-1.5 rounded-xl px-4 py-3">
+      <div className="flex items-center gap-2 text-on-surface-variant">{icon}<span className="text-xs font-medium uppercase tracking-wide">{label}</span></div>
+      <p className="text-lg font-bold text-on-surface">{value}</p>
+      {subValue && <p className="text-xs text-on-surface-variant">{subValue}</p>}
     </div>
   )
 }
@@ -113,12 +131,19 @@ function StatItem({ icon, label, value, subValue }: { icon: React.ReactNode; lab
 function Avatar({ name, avatarUrl, size = 8 }: { name: string; avatarUrl: string | null; size?: number }) {
   const s = `h-${size} w-${size}`
   if (avatarUrl) return <img src={avatarUrl} alt={name} className={`${s} rounded-full object-cover`} />
-  return <div className={`${s} flex shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-white`}>{name[0]}</div>
+  return <div className={`${s} flex shrink-0 items-center justify-center rounded-full bg-surface-container text-xs font-bold text-on-surface`}>{name[0]}</div>
 }
 
-// SVG icons
-function Icon({ d, className }: { d: string; className?: string }) {
-  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d={d} /></svg>
+function MSym({ name, size = 16, fill = 0 }: { name: string; size?: number; fill?: 0 | 1 }) {
+  return (
+    <span
+      className="material-symbols-outlined"
+      style={{ fontSize: `${size}px`, fontVariationSettings: `'FILL' ${fill}` }}
+      aria-hidden="true"
+    >
+      {name}
+    </span>
+  )
 }
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
@@ -154,25 +179,22 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
     userHasKudos = reaction !== null
   }
 
-  // Build stats list
   const stats: Array<{ icon: React.ReactNode; label: string; value: string; subValue?: string }> = [
-    { icon: <Icon d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" className="h-4 w-4" />, label: 'Duration', value: formatDuration(activity.durationMinutes) },
+    { icon: <MSym name="timer" />, label: 'Duration', value: formatDuration(activity.durationMinutes) },
   ]
-  if (activity.distanceKm != null) stats.push({ icon: <Icon d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" className="h-4 w-4" />, label: 'Distance', value: formatDistance(activity.distanceKm) })
-  if (activity.paceMinPerKm != null) stats.push({ icon: <Icon d="M13 10V3L4 14h7v7l9-11h-7z" className="h-4 w-4" />, label: 'Avg Pace', value: formatPace(activity.paceMinPerKm) })
-  if (activity.speedKmH != null) stats.push({ icon: <Icon d="M13 10V3L4 14h7v7l9-11h-7z" className="h-4 w-4" />, label: 'Avg Speed', value: `${activity.speedKmH.toFixed(1)} km/h` })
-  if (activity.caloriesBurned != null) stats.push({ icon: <Icon d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" className="h-4 w-4" />, label: 'Calories', value: `${activity.caloriesBurned.toLocaleString()} kcal` })
-  if (activity.elevationGainM != null) stats.push({ icon: <Icon d="M5 3l14 9-14 9V3z" className="h-4 w-4" />, label: 'Elevation', value: `↑${activity.elevationGainM.toFixed(0)}m` })
+  if (activity.distanceKm != null) stats.push({ icon: <MSym name="straighten" />, label: 'Distance', value: formatDistance(activity.distanceKm) })
+  if (activity.paceMinPerKm != null) stats.push({ icon: <MSym name="bolt" fill={1} />, label: 'Avg Pace', value: formatPace(activity.paceMinPerKm) })
+  if (activity.speedKmH != null) stats.push({ icon: <MSym name="bolt" fill={1} />, label: 'Avg Speed', value: `${activity.speedKmH.toFixed(1)} km/h` })
+  if (activity.caloriesBurned != null) stats.push({ icon: <MSym name="local_fire_department" fill={1} />, label: 'Calories', value: `${activity.caloriesBurned.toLocaleString()} kcal` })
+  if (activity.elevationGainM != null) stats.push({ icon: <MSym name="trending_up" />, label: 'Elevation', value: `↑${activity.elevationGainM.toFixed(0)}m` })
 
-  // Biometric stats
-  const bioStats: Array<{ emoji: string; label: string; value: string }> = []
-  if (activity.heartRateAvg != null) bioStats.push({ emoji: '❤️', label: 'Avg HR', value: `${activity.heartRateAvg} bpm` })
-  if (activity.heartRateMax != null) bioStats.push({ emoji: '💓', label: 'Max HR', value: `${activity.heartRateMax} bpm` })
-  if (activity.cadence != null) bioStats.push({ emoji: '🔄', label: 'Cadence', value: `${activity.cadence} rpm` })
-  if (activity.powerWatts != null) bioStats.push({ emoji: '⚡', label: 'Power', value: `${activity.powerWatts} W` })
-  if (activity.temperature != null) bioStats.push({ emoji: '🌡️', label: 'Temp', value: `${activity.temperature}°C` })
+  const bioStats: Array<{ icon: string; label: string; value: string }> = []
+  if (activity.heartRateAvg != null) bioStats.push({ icon: 'favorite', label: 'Avg HR', value: `${activity.heartRateAvg} bpm` })
+  if (activity.heartRateMax != null) bioStats.push({ icon: 'favorite', label: 'Max HR', value: `${activity.heartRateMax} bpm` })
+  if (activity.cadence != null) bioStats.push({ icon: 'refresh', label: 'Cadence', value: `${activity.cadence} rpm` })
+  if (activity.powerWatts != null) bioStats.push({ icon: 'bolt', label: 'Power', value: `${activity.powerWatts} W` })
+  if (activity.temperature != null) bioStats.push({ icon: 'thermostat', label: 'Temp', value: `${activity.temperature}°C` })
 
-  // Tag teammate server action
   async function tagTeammate(formData: FormData) {
     'use server'
     const user = await getCurrentUser()
@@ -196,7 +218,6 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
     } catch { /* duplicate tag — ignore */ }
   }
 
-  // Add comment server action
   async function addComment(formData: FormData) {
     'use server'
     const user = await getCurrentUser()
@@ -204,11 +225,7 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
     const content = (formData.get('content') as string)?.trim()
     if (!content || content.length > 500) return
     await prisma.feedComment.create({
-      data: {
-        postId: activity.feedPost.id,
-        userId: user.id,
-        content,
-      },
+      data: { postId: activity.feedPost.id, userId: user.id, content },
     })
     await prisma.notification.create({
       data: {
@@ -227,8 +244,8 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
 
       {/* Back */}
       <div className="mb-5">
-        <Link href="/app/activities" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+        <Link href="/app/activities" className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-on-surface transition-colors">
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span>
           Back to Activities
         </Link>
       </div>
@@ -248,38 +265,39 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
       {activity.personalRecords.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           {activity.personalRecords.map((pr) => (
-            <span key={pr.id} className="flex items-center gap-1.5 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-400">
-              🏆 {PR_LABELS[pr.type] ?? pr.type} PR!
+            <span key={pr.id} className="flex items-center gap-1.5 rounded-full border border-[#FFD700]/30 bg-[#FFD700]/10 px-3 py-1 text-xs font-semibold text-[#FFD700]">
+              <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>emoji_events</span>
+              {PR_LABELS[pr.type] ?? pr.type} PR!
             </span>
           ))}
         </div>
       )}
 
       {/* Header card */}
-      <div className="rounded-2xl border border-slate-700 bg-slate-800 p-5 shadow-sm">
+      <div className="glass-card rounded-2xl p-5 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={activityTypeBadgeVariant(activity.type)} className="flex items-center gap-1.5">
-            <span>{activityTypeIcon(activity.type)}</span>
+          <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold', activityTypeBadgeClass(activity.type))}>
+            <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>{activitySymbol(activity.type)}</span>
             <span>{activityTypeLabel(activity.type)}</span>
-          </Badge>
+          </span>
           {statusBadge(activity.status)}
           {activity.effortLevel != null && (
-            <span className="ml-auto rounded-full border border-slate-600 bg-slate-700 px-2.5 py-0.5 text-xs text-slate-300">
+            <span className="ml-auto glass-card rounded-full border px-2.5 py-0.5 text-xs text-on-surface">
               Effort {activity.effortLevel}/10
             </span>
           )}
         </div>
 
-        <h1 className="mt-3 text-2xl font-bold leading-tight text-white">{activity.title}</h1>
+        <h1 className="mt-3 text-2xl font-bold leading-tight text-on-surface">{activity.title}</h1>
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-on-surface-variant">
           <span>{formatDateTime(activity.startedAt)}</span>
-          <span>by <span className="text-slate-300">{activity.user.name}</span></span>
+          <span>by <span className="text-on-surface">{activity.user.name}</span></span>
           {activity.gear && <span>🏷️ {activity.gear}</span>}
         </div>
 
         {activity.description && (
-          <p className="mt-3 text-sm leading-relaxed text-slate-300">{activity.description}</p>
+          <p className="mt-3 text-sm leading-relaxed text-on-surface">{activity.description}</p>
         )}
 
         {(activity.feedPost || comments.length > 0) && (
@@ -293,14 +311,14 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
               />
             )}
             {comments.length > 0 && (
-              <span className="text-xs text-slate-500">💬 {comments.length} comments</span>
+              <span className="text-xs text-on-surface-variant">💬 {comments.length} comments</span>
             )}
           </div>
         )}
 
         {isOwner && (
-          <div className="mt-4 border-t border-slate-700 pt-4">
-            <Link href={`/app/activities/${activity.id}/edit`} className="inline-flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-600 hover:text-white transition-colors">
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <Link href={`/app/activities/${activity.id}/edit`} className="inline-flex items-center gap-2 glass-card rounded-lg border px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-high transition-colors">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
               Edit
             </Link>
@@ -334,13 +352,16 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
 
       {/* Biometric stats */}
       {bioStats.length > 0 && (
-        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Biometrics</p>
+        <div className="mt-4 glass-card rounded-xl px-4 py-3">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Biometrics</p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
             {bioStats.map((b) => (
               <div key={b.label}>
-                <p className="text-xs text-slate-500">{b.emoji} {b.label}</p>
-                <p className="mt-0.5 text-sm font-bold text-white">{b.value}</p>
+                <p className="flex items-center gap-1 text-xs text-on-surface-variant">
+                  <span className="material-symbols-outlined" style={{ fontSize: '13px', fontVariationSettings: "'FILL' 1" }}>{b.icon}</span>
+                  {b.label}
+                </p>
+                <p className="mt-0.5 text-sm font-bold text-on-surface">{b.value}</p>
               </div>
             ))}
           </div>
@@ -348,26 +369,26 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
       )}
 
       {/* Points */}
-      <div className="mt-4 flex items-center gap-4 rounded-xl border border-yellow-600/30 bg-yellow-600/5 px-5 py-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow-600/20">
-          <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+      <div className="mt-4 flex items-center gap-4 rounded-xl border border-[#FFD700]/30 bg-[#FFD700]/5 px-5 py-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFD700]/20">
+          <span className="material-symbols-outlined text-[#FFD700]" style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}>stars</span>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Points Awarded</p>
-          <p className="text-2xl font-bold text-yellow-400">{activity.pointsEarned > 0 ? `+${activity.pointsEarned.toLocaleString()} pts` : '0 pts'}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-on-surface-variant">Points Awarded</p>
+          <p className="text-2xl font-bold text-[#FFD700]">{activity.pointsEarned > 0 ? `+${activity.pointsEarned.toLocaleString()} pts` : '0 pts'}</p>
         </div>
         {activity.pointsEarned === 0 && activity.status === ActivityStatus.PENDING && (
-          <p className="ml-auto text-xs text-slate-500 text-right max-w-[140px]">Points awarded after review</p>
+          <p className="ml-auto text-xs text-on-surface-variant text-right max-w-[140px]">Points awarded after review</p>
         )}
       </div>
 
       {/* Route map */}
-      <div className="mt-4 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800">
-        <div className="flex items-center gap-2.5 border-b border-slate-700 px-5 py-3">
-          <svg className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          <span className="text-sm font-semibold text-slate-200">Route Map</span>
+      <div className="mt-4 glass-card overflow-hidden rounded-2xl">
+        <div className="flex items-center gap-2.5 border-b border-white/10 px-5 py-3">
+          <span className="material-symbols-outlined text-primary-fixed" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>location_on</span>
+          <span className="text-sm font-semibold text-on-surface">Route Map</span>
           {hasRoute && (
-            <span className="ml-auto rounded-full border border-slate-600 bg-slate-700 px-2.5 py-0.5 text-xs text-slate-300">
+            <span className="ml-auto glass-card rounded-full border px-2.5 py-0.5 text-xs text-on-surface">
               {routePointCount.toLocaleString()} GPS points
             </span>
           )}
@@ -380,26 +401,26 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
       {/* Splits */}
       {activity.splits.length > 0 && (
         <section className="mt-6">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Splits</h2>
-          <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Splits</h2>
+          <div className="glass-card overflow-x-auto rounded-xl">
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-slate-700">
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-slate-400">km</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-slate-400">Time</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-slate-400">Pace</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-slate-400 hidden sm:table-cell">Elev</th>
+              <thead><tr className="border-b border-white/10">
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-on-surface-variant">km</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-on-surface-variant">Time</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-on-surface-variant">Pace</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-on-surface-variant hidden sm:table-cell">Elev</th>
               </tr></thead>
-              <tbody className="divide-y divide-slate-700/50">
+              <tbody className="divide-y divide-white/5">
                 {activity.splits.map((split) => {
                   const avg = activity.paceMinPerKm ?? 0
                   const fast = split.paceSecPerKm < avg * 60 * 0.95
                   const slow = split.paceSecPerKm > avg * 60 * 1.05
                   return (
                     <tr key={split.splitNumber} className="hover:bg-white/5">
-                      <td className="px-4 py-2.5 text-slate-400 font-medium">{split.splitNumber}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-slate-300">{formatSplitTime(split.elapsedSecs)}</td>
-                      <td className={cn('px-4 py-2.5 text-right font-mono text-sm', fast ? 'text-green-400' : slow ? 'text-orange-400' : 'text-slate-300')}>{formatPaceSec(split.paceSecPerKm)}</td>
-                      <td className="px-4 py-2.5 text-right text-xs text-slate-500 hidden sm:table-cell">{split.elevationGainM != null ? `↑${split.elevationGainM.toFixed(0)}m` : '—'}</td>
+                      <td className="px-4 py-2.5 text-on-surface-variant font-medium">{split.splitNumber}</td>
+                      <td className="px-4 py-2.5 text-right font-mono text-on-surface">{formatSplitTime(split.elapsedSecs)}</td>
+                      <td className={cn('px-4 py-2.5 text-right font-mono text-sm', fast ? 'text-primary-fixed' : slow ? 'text-[#FFD700]' : 'text-on-surface')}>{formatPaceSec(split.paceSecPerKm)}</td>
+                      <td className="px-4 py-2.5 text-right text-xs text-on-surface-variant hidden sm:table-cell">{split.elevationGainM != null ? `↑${split.elevationGainM.toFixed(0)}m` : '—'}</td>
                     </tr>
                   )
                 })}
@@ -412,17 +433,17 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
       {/* Segment efforts */}
       {activity.segmentEfforts.length > 0 && (
         <section className="mt-6">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Segments</h2>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Segments</h2>
           <div className="space-y-2">
             {activity.segmentEfforts.map((effort) => (
-              <Link key={effort.id} href={`/app/segments/${effort.segment.id}`} className="flex items-center gap-4 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 transition-colors hover:bg-slate-700">
+              <Link key={effort.id} href={`/app/segments/${effort.segment.id}`} className="glass-card flex items-center gap-4 rounded-lg border px-4 py-3 transition-colors hover:bg-surface-container-high">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-slate-100">{effort.segment.title}</p>
-                  <p className="text-xs text-slate-500">{formatDistance(effort.segment.distanceKm)}{effort.segment.difficulty ? ` · ${effort.segment.difficulty}` : ''}</p>
+                  <p className="font-medium text-on-surface">{effort.segment.title}</p>
+                  <p className="text-xs text-on-surface-variant">{formatDistance(effort.segment.distanceKm)}{effort.segment.difficulty ? ` · ${effort.segment.difficulty}` : ''}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="font-mono font-semibold text-white">{formatSplitTime(effort.elapsedSecs)}</p>
-                  {effort.rank && <p className="text-xs text-yellow-400">Rank #{effort.rank}</p>}
+                  <p className="font-mono font-semibold text-on-surface">{formatSplitTime(effort.elapsedSecs)}</p>
+                  {effort.rank && <p className="text-xs text-[#FFD700]">Rank #{effort.rank}</p>}
                 </div>
               </Link>
             ))}
@@ -433,12 +454,12 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
       {/* Comments */}
       {activity.feedPost && (
         <section className="mt-6">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
             Comments {comments.length > 0 && `(${comments.length})`}
           </h2>
 
           {comments.length === 0 && (
-            <p className="mb-3 text-sm text-slate-500">No comments yet. Be the first!</p>
+            <p className="mb-3 text-sm text-on-surface-variant">No comments yet. Be the first!</p>
           )}
 
           <div className="space-y-3 mb-4">
@@ -446,11 +467,11 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
               <div key={c.id} className="flex gap-3">
                 <Avatar name={c.user.name} avatarUrl={c.user.avatarUrl} size={8} />
                 <div className="flex-1 min-w-0">
-                  <div className="rounded-2xl rounded-tl-sm border border-slate-700 bg-slate-800 px-3 py-2">
-                    <p className="text-xs font-semibold text-slate-300">{c.user.name}</p>
-                    <p className="mt-0.5 text-sm text-slate-200">{c.content}</p>
+                  <div className="glass-card rounded-2xl rounded-tl-sm border px-3 py-2">
+                    <p className="text-xs font-semibold text-on-surface">{c.user.name}</p>
+                    <p className="mt-0.5 text-sm text-on-surface">{c.content}</p>
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">{formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}</p>
+                  <p className="mt-1 text-xs text-on-surface-variant">{formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}</p>
                 </div>
               </div>
             ))}
@@ -463,9 +484,9 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
               maxLength={500}
               placeholder="Write a comment…"
               required
-              className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+              className="flex-1 resize-none glass-card rounded-xl border border-white/10 px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary-fixed"
             />
-            <button type="submit" className="shrink-0 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-500 transition-colors">
+            <button type="submit" className="shrink-0 rounded-xl bg-primary-fixed px-4 py-2.5 text-sm font-semibold text-on-primary-fixed hover:bg-primary-fixed-dim transition-colors">
               Post
             </button>
           </form>
@@ -475,7 +496,7 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
       {/* Tagged teammates */}
       {(activity.tags.length > 0 || isOwner) && (
         <section className="mt-6">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
             Tagged in this activity {activity.tags.length > 0 && `(${activity.tags.length})`}
           </h2>
 
@@ -485,11 +506,11 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
                 <Link
                   key={tag.id}
                   href={`/app/players/${tag.tagged.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-300 hover:border-green-600/40 hover:text-green-400 transition-colors"
+                  className="glass-card inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm text-on-surface hover:border-primary-fixed/40 hover:text-primary-fixed transition-colors"
                 >
-                  <span className="text-base">👤</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>person</span>
                   <span className="font-medium">{tag.tagged.name}</span>
-                  <span className="text-xs text-slate-500">@{tag.tagged.nickname}</span>
+                  <span className="text-xs text-on-surface-variant">@{tag.tagged.nickname}</span>
                 </Link>
               ))}
             </div>
@@ -503,9 +524,9 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
                 placeholder="@nickname"
                 maxLength={40}
                 required
-                className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+                className="flex-1 glass-card rounded-xl border border-white/10 px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary-fixed"
               />
-              <button type="submit" className="shrink-0 rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-600 hover:text-white transition-colors">
+              <button type="submit" className="shrink-0 glass-card rounded-xl border px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high transition-colors">
                 Tag
               </button>
             </form>
@@ -513,8 +534,20 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
         </section>
       )}
 
+      {/* HR Zones */}
+      {activity.heartRateAvg != null && (
+        <div className="mt-6">
+          <HRZonesDisplay heartRateAvg={activity.heartRateAvg} heartRateMax={activity.heartRateMax} />
+        </div>
+      )}
+
+      {/* Share */}
+      <div className="mt-6">
+        <ShareActivityButton title={activity.title} />
+      </div>
+
       {/* Footer meta */}
-      <div className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-600">
+      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-on-surface-variant">
         <span>Logged {formatDate(activity.createdAt, 'MMM d, yyyy')}</span>
         <span className="capitalize">Visibility: {activity.visibility.toLowerCase()}</span>
       </div>

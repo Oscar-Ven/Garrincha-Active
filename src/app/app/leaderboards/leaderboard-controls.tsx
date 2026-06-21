@@ -62,7 +62,7 @@ export function LeaderboardControls({
       )}
     >
       {/* ── Tab strip ── */}
-      <div className="flex items-center border-b border-slate-700">
+      <div className="flex items-center border-b border-white/10">
         {allTabs.map((tab) => {
           const disabled = tab === 'center' && !hasCenter
           return (
@@ -74,11 +74,11 @@ export function LeaderboardControls({
               title={disabled ? 'You are not assigned to a center' : undefined}
               className={cn(
                 'relative px-4 py-3 text-sm font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest',
                 'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-t-full after:transition-colors',
                 activeTab === tab
-                  ? 'text-green-400 font-semibold after:bg-green-500'
-                  : 'text-slate-400 hover:text-slate-200 after:bg-transparent',
+                  ? 'text-primary-fixed font-semibold after:bg-primary-fixed'
+                  : 'text-on-surface-variant hover:text-on-surface after:bg-transparent',
                 disabled && 'cursor-not-allowed opacity-40',
               )}
             >
@@ -90,7 +90,7 @@ export function LeaderboardControls({
 
       {/* ── Metric pills ── */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-on-surface-variant">
           Metric:
         </span>
         {allMetrics.map((metric) => (
@@ -100,10 +100,10 @@ export function LeaderboardControls({
             onClick={() => navigate({ tab: activeTab, metric })}
             className={cn(
               'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest',
               activeMetric === metric
-                ? 'border-green-600 bg-green-600/20 text-green-300'
-                : 'border-slate-600 bg-slate-800 text-slate-400 hover:border-slate-400 hover:text-slate-200',
+                ? 'border-primary-fixed bg-primary-fixed/10 text-primary-fixed'
+                : 'glass-card text-on-surface-variant hover:text-on-surface',
             )}
           >
             {METRIC_LABELS[metric]}

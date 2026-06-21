@@ -200,6 +200,48 @@ export async function markAttended(sessionId: string, userId: string) {
   }
 }
 
+export async function getOpenGames(centerId?: string) {
+  return prisma.centerSession.findMany({
+    where: {
+      ...(centerId ? { centerId } : {}),
+      isOpenGame: true,
+      isPublic: true,
+      startTime: { gte: new Date() },
+    },
+    include: {
+      center: { select: { id: true, name: true } },
+      createdBy: { select: { id: true, name: true, nickname: true } },
+      _count: { select: { participants: { where: { status: { not: 'CANCELLED' } } } } },
+    },
+    orderBy: { startTime: 'asc' },
+    take: 50,
+  })
+}
+
+export async function createOpenGame(
+  centerId: string,
+  createdById: string,
+  data: CreateSessionInput & { minSkillLevel?: string; maxSkillLevel?: string },
+) {
+  return prisma.centerSession.create({
+    data: {
+      centerId,
+      createdById,
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      capacity: data.capacity ?? -1,
+      pointsReward: data.pointsReward ?? 0,
+      isPublic: true,
+      isOpenGame: true,
+      minSkillLevel: data.minSkillLevel as never ?? null,
+      maxSkillLevel: data.maxSkillLevel as never ?? null,
+    },
+  })
+}
+
 export async function getUserRegistrations(userId: string) {
   return prisma.sessionParticipant.findMany({
     where: { userId },

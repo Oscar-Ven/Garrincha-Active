@@ -3,737 +3,298 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { cn } from '@/lib/utils'
-import {
-  POINTS_RULES,
-  SUSPICIOUS_SPEED_THRESHOLDS,
-  LEVEL_THRESHOLDS,
-  MAX_DAILY_ACTIVITY_POINTS,
-} from '@/lib/points-rules'
-import { ActivityType } from '@/generated/prisma'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Settings,
-  Zap,
-  Award,
-  Users,
-  Info,
-  CheckCircle,
-  Cpu,
-  Database,
-  AlertTriangle,
-  Trash2,
-  Plus,
-  Bot,
-  UserCheck,
-} from 'lucide-react'
-import { updatePlatformName, createBadge, deleteBadge } from './actions'
+import { revalidatePath } from 'next/cache'
 
-export const metadata = { title: 'Admin Settings' }
+export const metadata = { title: 'Settings — Admin' }
+
+// ─── Server Actions ────────────────────────────────────────────────────────────
+
+async function createBadge(formData: FormData) {
+  'use server'
+  const admin = await getCurrentUser()
+  if (!admin || admin.role !== 'PLATFORM_ADMIN') throw new Error('Unauthorized')
+  const key         = (formData.get('key') as string).trim()
+  const name        = (formData.get('name') as string).trim()
+  const description = (formData.get('description') as string).trim()
+  const iconUrl     = (formData.get('iconUrl') as string | null)?.trim() || null
+  if (!key || !name || !description) throw new Error('Missing required fields')
+  await prisma.badge.create({ data: { key, name, description, iconUrl } })
+  revalidatePath('/admin/settings')
+}
+
+async function deleteBadge(formData: FormData) {
+  'use server'
+  const admin = await getCurrentUser()
+  if (!admin || admin.role !== 'PLATFORM_ADMIN') throw new Error('Unauthorized')
+  await prisma.badge.delete({ where: { id: formData.get('badgeId') as string } })
+  revalidatePath('/admin/settings')
+}
 
 // ─── Layout helpers ───────────────────────────────────────────────────────────
 
-function SectionCard({
-  title,
-  description,
-  icon,
-  children,
-}: {
-  title: string
-  description?: string
-  icon?: React.ReactNode
-  children: React.ReactNode
-}) {
+function SectionCard({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-slate-700 bg-slate-800/50 shadow-md">
-      <div className="flex items-start gap-3 border-b border-slate-700 px-6 py-4">
-        {icon && (
-          <span className="mt-0.5 shrink-0 text-green-400">{icon}</span>
-        )}
-        <div>
-          <h2 className="text-base font-semibold text-white">{title}</h2>
-          {description && (
-            <p className="mt-0.5 text-sm text-slate-400">{description}</p>
-          )}
-        </div>
+    <section className="glass-card overflow-hidden rounded-xl">
+      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+        <span className="material-symbols-outlined text-primary-fixed" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        <h2 className="text-base font-semibold text-on-surface">{title}</h2>
       </div>
-      <div className="px-6 py-5">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   )
 }
 
-function InfoRow({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5 border-b border-slate-700/60 last:border-0">
-      <span className="text-sm text-slate-400">{label}</span>
-      <span className={cn('text-sm font-medium text-white', mono && 'font-mono text-xs bg-slate-900 px-2 py-0.5 rounded')}>
-        {value}
-      </span>
+    <div className="flex items-start justify-between gap-4 border-b border-white/10 py-3 last:border-0">
+      <p className="text-sm font-medium text-on-surface-variant">{label}</p>
+      {mono ? (
+        <code className="rounded bg-surface-container-lowest px-2 py-0.5 font-mono text-xs text-on-surface">{value}</code>
+      ) : (
+        <p className="text-sm text-on-surface">{value}</p>
+      )}
     </div>
   )
 }
 
-function AlertBanner({ children }: { children: React.ReactNode }) {
+function AlertBanner({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-yellow-700/50 bg-yellow-900/20 px-4 py-3 text-sm text-yellow-300">
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-      <div>{children}</div>
+    <div className="flex items-start gap-3 rounded-lg border border-[#FFD700]/30 bg-[#FFD700]/10 px-4 py-3">
+      <span className="material-symbols-outlined mt-0.5 shrink-0 text-[#FFD700]" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>warning</span>
+      <p className="text-sm text-[#FFD700]">{message}</p>
     </div>
   )
 }
 
-function SuccessBanner({ children }: { children: React.ReactNode }) {
+function SuccessBanner({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-green-700/50 bg-green-900/20 px-4 py-3 text-sm text-green-300">
-      <CheckCircle className="h-4 w-4 shrink-0" />
-      <div>{children}</div>
+    <div className="flex items-start gap-3 rounded-lg border border-primary-fixed/30 bg-primary-fixed/10 px-4 py-3">
+      <span className="material-symbols-outlined mt-0.5 shrink-0 text-primary-fixed" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+      <p className="text-sm text-primary-fixed">{message}</p>
     </div>
   )
-}
-
-function ErrorBanner({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-red-700/50 bg-red-900/20 px-4 py-3 text-sm text-red-300">
-      <AlertTriangle className="h-4 w-4 shrink-0" />
-      <div>{children}</div>
-    </div>
-  )
-}
-
-// ─── Activity type labels ────────────────────────────────────────────────────
-
-const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
-  RUN: 'Run',
-  WALK: 'Walk',
-  CYCLING: 'Cycling',
-  FOOTBALL_TRAINING: 'Football Training',
-  FOOTBALL_MATCH: 'Football Match',
-  FITNESS: 'Fitness',
-  CUSTOM: 'Custom',
-  PADEL: 'Padel',
-  TENNIS: 'Tennis',
-  SQUASH: 'Squash',
-  PICKLEBALL: 'Pickleball',
-  BADMINTON: 'Badminton',
-  RACQUETBALL: 'Racquetball',
-}
-
-const ACTIVITY_TYPE_UNIT: Record<ActivityType, string> = {
-  RUN: 'pts / km',
-  WALK: 'pts / km',
-  CYCLING: 'pts / km',
-  FOOTBALL_TRAINING: 'pts / session',
-  FOOTBALL_MATCH: 'pts / match',
-  FITNESS: 'pts / session',
-  CUSTOM: 'pts / session',
-  PADEL: 'pts / match',
-  TENNIS: 'pts / match',
-  SQUASH: 'pts / match',
-  PICKLEBALL: 'pts / match',
-  BADMINTON: 'pts / match',
-  RACQUETBALL: 'pts / match',
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default async function AdminSettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | undefined>>
-}) {
-  const session = await getCurrentUser()
-  if (!session) redirect('/login')
-  if (session.role !== 'PLATFORM_ADMIN') redirect('/admin')
+export default async function AdminSettingsPage() {
+  const user = await getCurrentUser()
+  if (!user) redirect('/login')
+  if (user.role !== 'PLATFORM_ADMIN') redirect('/app')
 
-  const params = await searchParams
-  const feedback = params.feedback
-  const feedbackError = params.error
-
-  // Fetch data in parallel
-  const [platformNameSetting, badges, demoAccounts] = await Promise.all([
-    prisma.appSetting.findUnique({ where: { key: 'platform_name' } }),
-    prisma.badge.findMany({
-      orderBy: { createdAt: 'asc' },
-      include: { _count: { select: { userBadges: true, challenges: true } } },
-    }),
+  const [badges, systemStats, demoAccounts] = await Promise.all([
+    prisma.badge.findMany({ orderBy: { name: 'asc' } }),
+    prisma.$transaction([
+      prisma.user.count(),
+      prisma.activity.count(),
+      prisma.rewardRedemption.count(),
+      prisma.badge.count(),
+    ]),
     prisma.user.findMany({
-      where: {
-        email: {
-          in: [
-            'admin@garrincha.app',
-            'center@garrincha.app',
-            'player@garrincha.app',
-            'sponsor@garrincha.app',
-          ],
-        },
-      },
-      select: { id: true, email: true, name: true, role: true, isActive: true },
-      orderBy: { role: 'asc' },
+      where: { email: { contains: '@demo.' } },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
     }),
   ])
 
-  const platformName = platformNameSetting?.value ?? 'Garrincha Active'
+  const [userCount, activityCount, redemptionCount, badgeCount] = systemStats
 
   return (
-    <div className="space-y-8">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Platform Settings</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Configure platform-wide defaults, inspect rules, and manage badges.
-        </p>
+    <div className="space-y-6">
+      {/* ── Header ── */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-fixed/10">
+          <span className="material-symbols-outlined text-primary-fixed" style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}>settings</span>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-on-surface">Platform Settings</h1>
+          <p className="text-sm text-on-surface-variant">Manage platform configuration, badges, and system data.</p>
+        </div>
       </div>
 
-      {/* Feedback banners rendered from URL params (set by redirect after action) */}
-      {feedback === 'platform_name_saved' && (
-        <SuccessBanner>Platform name updated successfully.</SuccessBanner>
-      )}
-      {feedback === 'badge_created' && (
-        <SuccessBanner>Badge created successfully.</SuccessBanner>
-      )}
-      {feedback === 'badge_deleted' && (
-        <SuccessBanner>Badge deleted.</SuccessBanner>
-      )}
-      {feedbackError && (
-        <ErrorBanner>{decodeURIComponent(feedbackError)}</ErrorBanner>
-      )}
-
-      {/* ── 1. Platform Name ──────────────────────────────────────────────── */}
-      <SectionCard
-        title="Platform Name"
-        description="The display name used in headings, emails, and public-facing pages."
-        icon={<Settings className="h-5 w-5" />}
-      >
-        <PlatformNameForm current={platformName} />
-      </SectionCard>
-
-      {/* ── 2. Points Rules ───────────────────────────────────────────────── */}
-      <SectionCard
-        title="Points Rules"
-        description="Read-only display of the active point values defined in points-rules.ts. Edit the source file to change them."
-        icon={<Zap className="h-5 w-5" />}
-      >
-        <div className="space-y-6">
-          {/* Per-activity rates */}
-          <div>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Activity Point Rates
-            </h3>
-            <div className="overflow-hidden rounded-lg border border-slate-700">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700 bg-slate-900/60">
-                    <th className="px-4 py-2.5 text-left font-medium text-slate-400">Activity Type</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-slate-400">Rate</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-slate-400">Max Speed (km/h)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60">
-                  {(Object.keys(POINTS_RULES) as ActivityType[]).map((type) => (
-                    <tr key={type} className="hover:bg-slate-700/30 transition-colors">
-                      <td className="px-4 py-3 font-medium text-white">
-                        {ACTIVITY_TYPE_LABELS[type]}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-green-400">
-                        {POINTS_RULES[type]} {ACTIVITY_TYPE_UNIT[type]}
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-400">
-                        {SUSPICIOUS_SPEED_THRESHOLDS[type] !== null
-                          ? `${SUSPICIOUS_SPEED_THRESHOLDS[type]} km/h`
-                          : <span className="text-slate-600">N/A</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* ── System info ── */}
+      <SectionCard title="System Overview" icon="dns">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Total Users',       value: userCount },
+            { label: 'Total Activities',  value: activityCount },
+            { label: 'Total Redemptions', value: redemptionCount },
+            { label: 'Total Badges',      value: badgeCount },
+          ].map(({ label, value }) => (
+            <div key={label} className="rounded-lg border border-white/10 px-4 py-3">
+              <p className="text-xs text-on-surface-variant">{label}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-on-surface">{value.toLocaleString()}</p>
             </div>
-          </div>
-
-          {/* Daily cap + level thresholds */}
-          <div className="grid sm:grid-cols-2 gap-6">
-            <div>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Daily Cap
-              </h3>
-              <div className="rounded-lg border border-slate-700 px-4 py-3">
-                <InfoRow
-                  label="Max daily activity points"
-                  value={
-                    <span className="font-mono text-green-400">{MAX_DAILY_ACTIVITY_POINTS} pts</span>
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Level Thresholds (lifetime points)
-              </h3>
-              <div className="rounded-lg border border-slate-700 divide-y divide-slate-700/60">
-                {(Object.entries(LEVEL_THRESHOLDS) as [string, number][]).map(([level, pts]) => (
-                  <div key={level} className="flex items-center justify-between px-4 py-2.5">
-                    <span className={cn(
-                      'text-sm font-semibold',
-                      level === 'BRONZE' && 'text-amber-600',
-                      level === 'SILVER' && 'text-slate-400',
-                      level === 'GOLD' && 'text-yellow-500',
-                      level === 'ELITE' && 'text-emerald-400',
-                    )}>
-                      {level}
-                    </span>
-                    <span className="font-mono text-sm text-white">{pts.toLocaleString()} pts</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-500">
-            To change any of the values above, update{' '}
-            <code className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-slate-300">
-              src/lib/points-rules.ts
-            </code>{' '}
-            and redeploy.
-          </p>
+          ))}
+        </div>
+        <div className="mt-4 divide-y divide-white/10 border-t border-white/10">
+          <InfoRow label="Node.js"  value={process.version}                                     mono />
+          <InfoRow label="Env"      value={process.env.NODE_ENV ?? 'unknown'}                   />
+          <InfoRow label="Vercel"   value={process.env.VERCEL_ENV ?? 'local'}                   />
+          <InfoRow label="Version"  value={process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev'}        />
         </div>
       </SectionCard>
 
-      {/* ── 3. Badge Management ───────────────────────────────────────────── */}
-      <SectionCard
-        title="Badge Management"
-        description="All badges defined in the platform. Auto badges are awarded automatically by the system; manual badges are granted by admins."
-        icon={<Award className="h-5 w-5" />}
-      >
-        <div className="space-y-6">
-          {/* Badge list */}
-          {badges.length === 0 ? (
-            <p className="text-sm text-slate-400">No badges defined yet. Create the first one below.</p>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-700">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700 bg-slate-900/60">
-                    <th className="px-4 py-2.5 text-left font-medium text-slate-400">Badge</th>
-                    <th className="px-4 py-2.5 text-left font-medium text-slate-400 hidden sm:table-cell">Key</th>
-                    <th className="px-4 py-2.5 text-center font-medium text-slate-400">Type</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-slate-400">Awards</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-slate-400">Action</th>
+      {/* ── Badges ── */}
+      <SectionCard title="Badges" icon="military_tech">
+        <div className="space-y-4">
+          <AlertBanner message="Deleting a badge that has already been awarded to players will also remove it from their profiles." />
+
+          {/* Existing badges table */}
+          <div className="overflow-x-auto rounded-lg border border-white/10">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10 bg-surface-container">
+                  {['Key', 'Name', 'Description', 'Auto?', 'Actions'].map((col) => (
+                    <th key={col} className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {badges.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-on-surface-variant">
+                      No badges created yet.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60">
-                  {badges.map((badge) => {
-                    const canDelete =
-                      badge._count.userBadges === 0 && badge._count.challenges === 0
-                    return (
-                      <tr key={badge.id} className="hover:bg-slate-700/30 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2.5">
-                            {badge.iconUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={badge.iconUrl}
-                                alt=""
-                                className="h-8 w-8 rounded-full object-cover shrink-0"
-                              />
-                            ) : (
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-slate-400">
-                                <Award className="h-4 w-4" />
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-medium text-white truncate">{badge.name}</p>
-                              <p className="text-xs text-slate-400 truncate max-w-[180px]">
-                                {badge.description}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
-                          <code className="rounded bg-slate-900 px-1.5 py-0.5 text-xs font-mono text-slate-300">
-                            {badge.key}
-                          </code>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {badge.isAuto ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-900/40 px-2.5 py-0.5 text-xs font-medium text-blue-300">
-                              <Bot className="h-3 w-3" />
-                              Auto
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-900/40 px-2.5 py-0.5 text-xs font-medium text-purple-300">
-                              <UserCheck className="h-3 w-3" />
-                              Manual
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="text-sm text-slate-300">
-                            {badge._count.userBadges.toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {canDelete ? (
-                            <DeleteBadgeForm badgeId={badge.id} badgeName={badge.name} />
-                          ) : (
-                            <span
-                              className="text-xs text-slate-600"
-                              title="Cannot delete — badge has been awarded or linked to challenges"
-                            >
-                              In use
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ) : (
+                  badges.map((badge) => (
+                    <tr key={badge.id} className="transition-colors hover:bg-surface-container-high">
+                      <td className="px-4 py-3">
+                        <code className="rounded bg-surface-container-lowest px-2 py-0.5 font-mono text-xs text-on-surface">{badge.key}</code>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-on-surface">{badge.name}</td>
+                      <td className="max-w-56 px-4 py-3">
+                        <p className="line-clamp-2 text-xs text-on-surface-variant">{badge.description}</p>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-on-surface-variant">
+                        {badge.isAuto ? 'Auto' : 'Manual'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <form action={deleteBadge}>
+                          <input type="hidden" name="badgeId" value={badge.id} />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1 rounded-lg border border-error/40 bg-error/10 px-2.5 py-1 text-xs font-semibold text-error transition-colors hover:bg-error/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>delete</span>
+                            Delete
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* Create badge form */}
-          <CreateBadgeForm />
+          <div className="glass-card rounded-xl p-5">
+            <h3 className="mb-4 text-sm font-semibold text-on-surface">Create New Badge</h3>
+            <form action={createBadge} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-on-surface-variant">Key * (unique identifier)</label>
+                  <input
+                    name="key"
+                    required
+                    placeholder="e.g. speed_demon"
+                    className="glass-card w-full rounded-lg border px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary-fixed focus:outline-none focus:ring-1 focus:ring-primary-fixed"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-on-surface-variant">Display Name *</label>
+                  <input
+                    name="name"
+                    required
+                    placeholder="e.g. Speed Demon"
+                    className="glass-card w-full rounded-lg border px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary-fixed focus:outline-none focus:ring-1 focus:ring-primary-fixed"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-xs font-medium text-on-surface-variant">Icon URL</label>
+                  <input
+                    name="iconUrl"
+                    type="url"
+                    placeholder="https://…"
+                    className="glass-card w-full rounded-lg border px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary-fixed focus:outline-none focus:ring-1 focus:ring-primary-fixed"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-on-surface-variant">Description *</label>
+                <textarea
+                  name="description"
+                  required
+                  rows={3}
+                  placeholder="Describe when this badge is awarded…"
+                  className="glass-card w-full resize-none rounded-lg border px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary-fixed focus:outline-none focus:ring-1 focus:ring-primary-fixed"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary-fixed px-4 py-2 text-sm font-semibold text-on-primary-fixed transition-colors hover:bg-primary-fixed-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>add</span>
+                  Create Badge
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </SectionCard>
 
-      {/* ── 4. Demo Accounts ──────────────────────────────────────────────── */}
-      <SectionCard
-        title="Demo Accounts"
-        description="Pre-seeded accounts for demonstration and testing. Do not use these credentials in production."
-        icon={<Users className="h-5 w-5" />}
-      >
-        <div className="space-y-4">
-          <AlertBanner>
-            These accounts exist for demo purposes only. Change or revoke their passwords before
-            going live.
-          </AlertBanner>
-
-          {demoAccounts.length === 0 ? (
-            <p className="text-sm text-slate-400">
-              No standard demo accounts detected. Run{' '}
-              <code className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-xs text-slate-300">
-                npm run seed
-              </code>{' '}
-              to create them.
-            </p>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-700">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700 bg-slate-900/60">
-                    <th className="px-4 py-2.5 text-left font-medium text-slate-400">Name</th>
-                    <th className="px-4 py-2.5 text-left font-medium text-slate-400">Email</th>
-                    <th className="px-4 py-2.5 text-center font-medium text-slate-400">Role</th>
-                    <th className="px-4 py-2.5 text-center font-medium text-slate-400">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/60">
-                  {demoAccounts.map((account) => (
-                    <tr key={account.id} className="hover:bg-slate-700/30 transition-colors">
-                      <td className="px-4 py-3 font-medium text-white">{account.name}</td>
-                      <td className="px-4 py-3">
-                        <code className="font-mono text-xs text-slate-300">{account.email}</code>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={cn(
-                          'rounded-full px-2.5 py-0.5 text-xs font-medium',
-                          account.role === 'PLATFORM_ADMIN' && 'bg-red-900/40 text-red-300',
-                          account.role === 'CENTER_ADMIN' && 'bg-orange-900/40 text-orange-300',
-                          account.role === 'SPONSOR_ADMIN' && 'bg-yellow-900/40 text-yellow-300',
-                          account.role === 'PLAYER' && 'bg-blue-900/40 text-blue-300',
-                        )}>
-                          {account.role.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {account.isActive ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
-                            Inactive
-                          </span>
-                        )}
-                      </td>
-                    </tr>
+      {/* ── Demo accounts ── */}
+      {demoAccounts.length > 0 && (
+        <SectionCard title="Demo Accounts" icon="smart_toy">
+          <SuccessBanner message="Demo accounts are sandbox users used for testing. They have the email domain @demo.*" />
+          <div className="mt-4 overflow-x-auto rounded-lg border border-white/10">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10 bg-surface-container">
+                  {['Name', 'Email', 'Role', 'Created'].map((col) => (
+                    <th key={col} className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                      {col}
+                    </th>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {demoAccounts.map((acc) => (
+                  <tr key={acc.id} className="transition-colors hover:bg-surface-container-high">
+                    <td className="px-4 py-3 font-medium text-on-surface">{acc.name}</td>
+                    <td className="px-4 py-3">
+                      <code className="rounded bg-surface-container-lowest px-2 py-0.5 font-mono text-xs text-on-surface">
+                        {acc.email}
+                      </code>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-on-surface-variant">{acc.role}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-on-surface-variant">
+                      {new Date(acc.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      )}
 
-          <div className="rounded-lg border border-slate-700 bg-slate-900/40 px-4 py-3">
-            <p className="text-xs text-slate-400">
-              Default password for all demo accounts is{' '}
-              <code className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300">
-                password123
-              </code>
-              . Manage individual accounts via the{' '}
-              <Link href="/admin/players" className="text-green-400 underline hover:text-green-300">
-                Players
-              </Link>{' '}
-              page.
-            </p>
+      {/* ── Verified user model ── */}
+      <SectionCard title="Verified Users" icon="verified_user">
+        <div className="space-y-3 text-sm text-on-surface-variant">
+          <p>Verified users have completed identity verification. Verification grants access to competitive features and removes moderation limitations.</p>
+          <div className="divide-y divide-white/10 border-t border-white/10">
+            <InfoRow label="Verification provider" value="Manual review" />
+            <InfoRow label="Auto-verify on"         value="Email + phone confirmed" />
           </div>
         </div>
       </SectionCard>
-
-      {/* ── 5. System Info ────────────────────────────────────────────────── */}
-      <SectionCard
-        title="System Info"
-        description="Runtime environment details for debugging and operations."
-        icon={<Info className="h-5 w-5" />}
-      >
-        <div className="rounded-lg border border-slate-700 divide-y divide-slate-700/60">
-          <InfoRow label="Node.js version" value={process.version} mono />
-          <InfoRow label="Next.js version" value="16.2.9" mono />
-          <InfoRow label="Prisma version" value="7.8" mono />
-          <InfoRow
-            label="Database"
-            value={
-              <span className="flex items-center gap-1.5">
-                <Database className="h-3.5 w-3.5 text-slate-400" />
-                SQLite — prisma/dev.db
-              </span>
-            }
-          />
-          <InfoRow label="Environment" value={process.env.NODE_ENV ?? 'development'} mono />
-          <InfoRow
-            label="App"
-            value={
-              <span className="flex items-center gap-1.5">
-                <Cpu className="h-3.5 w-3.5 text-slate-400" />
-                {platformName}
-              </span>
-            }
-          />
-        </div>
-      </SectionCard>
-    </div>
-  )
-}
-
-// ─── Platform Name Form (inline server action via redirect) ──────────────────
-
-async function PlatformNameForm({ current }: { current: string }) {
-  async function action(formData: FormData) {
-    'use server'
-    const { redirect } = await import('next/navigation')
-    const result = await updatePlatformName(formData)
-    if (result.error) {
-      redirect(
-        `/admin/settings?error=${encodeURIComponent(result.error)}`,
-      )
-    } else {
-      redirect('/admin/settings?feedback=platform_name_saved')
-    }
-  }
-
-  return (
-    <form action={action} className="space-y-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="platformName" className="text-sm font-medium text-slate-300">
-          Platform Name
-        </label>
-        <div className="flex gap-3">
-          <Input
-            id="platformName"
-            name="platformName"
-            type="text"
-            defaultValue={current}
-            placeholder="Garrincha Active"
-            maxLength={80}
-            required
-            className="max-w-sm"
-          />
-          <Button type="submit" size="md">
-            Save
-          </Button>
-        </div>
-        <p className="text-xs text-slate-500">
-          Stored in the{' '}
-          <code className="rounded bg-slate-900 px-1 font-mono text-slate-400">app_settings</code>{' '}
-          table under the key{' '}
-          <code className="rounded bg-slate-900 px-1 font-mono text-slate-400">platform_name</code>.
-        </p>
-      </div>
-    </form>
-  )
-}
-
-// ─── Delete Badge Form ───────────────────────────────────────────────────────
-
-async function DeleteBadgeForm({
-  badgeId,
-  badgeName,
-}: {
-  badgeId: string
-  badgeName: string
-}) {
-  async function action() {
-    'use server'
-    const { redirect } = await import('next/navigation')
-    const result = await deleteBadge(badgeId)
-    if (result.error) {
-      redirect(
-        `/admin/settings?error=${encodeURIComponent(result.error)}#badge-management`,
-      )
-    } else {
-      redirect('/admin/settings?feedback=badge_deleted#badge-management')
-    }
-  }
-
-  return (
-    <form action={action}>
-      <button
-        type="submit"
-        title={`Delete badge "${badgeName}"`}
-        className={cn(
-          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-          'border border-red-700/50 bg-red-900/20 text-red-400 hover:bg-red-900/40 hover:text-red-300',
-          'focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-slate-800',
-        )}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-        Delete
-      </button>
-    </form>
-  )
-}
-
-// ─── Create Badge Form ───────────────────────────────────────────────────────
-
-async function CreateBadgeForm() {
-  async function action(formData: FormData) {
-    'use server'
-    const { redirect } = await import('next/navigation')
-    const result = await createBadge(formData)
-    if (result.error) {
-      redirect(
-        `/admin/settings?error=${encodeURIComponent(result.error)}#badge-management`,
-      )
-    } else {
-      redirect('/admin/settings?feedback=badge_created#badge-management')
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <Plus className="h-4 w-4 text-green-400" />
-        <h3 className="text-sm font-semibold text-white">Create New Badge</h3>
-      </div>
-
-      <form action={action} className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="badgeName" className="text-sm font-medium text-slate-300">
-              Name <span className="text-red-400">*</span>
-            </label>
-            <Input
-              id="badgeName"
-              name="name"
-              type="text"
-              placeholder="First 5K Run"
-              maxLength={80}
-              required
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="badgeKey" className="text-sm font-medium text-slate-300">
-              Key <span className="text-red-400">*</span>
-            </label>
-            <Input
-              id="badgeKey"
-              name="key"
-              type="text"
-              placeholder="first_5k_run"
-              maxLength={60}
-              required
-            />
-            <p className="text-xs text-slate-500">
-              Lowercase letters, numbers, underscores only. Must be unique.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="badgeDescription" className="text-sm font-medium text-slate-300">
-            Description <span className="text-red-400">*</span>
-          </label>
-          <textarea
-            id="badgeDescription"
-            name="description"
-            rows={2}
-            maxLength={200}
-            placeholder="Awarded when a player completes their first 5 km run."
-            required
-            className={cn(
-              'w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-400',
-              'focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-green-600',
-              'disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-colors duration-150',
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="badgeIconUrl" className="text-sm font-medium text-slate-300">
-              Icon URL
-            </label>
-            <Input
-              id="badgeIconUrl"
-              name="iconUrl"
-              type="url"
-              placeholder="https://example.com/badges/first-5k.png"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-slate-300">Award Type</p>
-            <div className="flex gap-4 pt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="isAuto"
-                  value="true"
-                  defaultChecked
-                  className="h-4 w-4 accent-green-600"
-                />
-                <span className="flex items-center gap-1.5 text-sm text-slate-300">
-                  <Bot className="h-3.5 w-3.5 text-blue-400" />
-                  Automatic
-                </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="isAuto"
-                  value="false"
-                  className="h-4 w-4 accent-green-600"
-                />
-                <span className="flex items-center gap-1.5 text-sm text-slate-300">
-                  <UserCheck className="h-3.5 w-3.5 text-purple-400" />
-                  Manual
-                </span>
-              </label>
-            </div>
-            <p className="text-xs text-slate-500">
-              Automatic badges are awarded by the system; manual badges are granted by admins.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-1">
-          <Button type="submit" size="md">
-            <Plus className="h-4 w-4" />
-            Create Badge
-          </Button>
-        </div>
-      </form>
     </div>
   )
 }

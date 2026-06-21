@@ -3,9 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { Badge } from '@/components/ui/badge'
 import { cn, formatDate } from '@/lib/utils'
-import { Users, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Players — Garrincha Admin',
@@ -18,14 +16,12 @@ const PAGE_SIZE = 25
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function roleBadgeVariant(
-  role: string,
-): 'default' | 'secondary' | 'outline' | 'gold' | 'destructive' {
+function roleBadgeClass(role: string): string {
   switch (role) {
-    case 'PLATFORM_ADMIN': return 'destructive'
-    case 'CENTER_ADMIN':   return 'gold'
-    case 'SPONSOR_ADMIN':  return 'secondary'
-    default:               return 'outline'
+    case 'PLATFORM_ADMIN': return 'border-error/40 bg-error/10 text-error'
+    case 'CENTER_ADMIN':   return 'border-[#FFD700]/40 bg-[#FFD700]/10 text-[#FFD700]'
+    case 'SPONSOR_ADMIN':  return 'border-secondary/40 bg-secondary/10 text-secondary'
+    default:               return 'glass-card text-on-surface-variant'
   }
 }
 
@@ -41,8 +37,8 @@ function roleLabel(role: string): string {
 function levelBadgeClass(level: string | undefined | null): string {
   switch (level) {
     case 'ELITE':  return 'border-purple-600/40 bg-purple-600/10 text-purple-400'
-    case 'GOLD':   return 'border-yellow-600/40 bg-yellow-600/10 text-yellow-400'
-    case 'SILVER': return 'border-slate-500/40 bg-slate-700/50 text-slate-300'
+    case 'GOLD':   return 'border-[#FFD700]/40 bg-[#FFD700]/10 text-[#FFD700]'
+    case 'SILVER': return 'border-white/10 bg-surface-container text-on-surface'
     default:       return 'border-amber-700/40 bg-amber-700/10 text-amber-600'
   }
 }
@@ -128,7 +124,7 @@ function PlayerAvatar({
   }
 
   return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold text-slate-300 ring-1 ring-white/10">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container-highest text-xs font-semibold text-on-surface ring-1 ring-white/10">
       {initials || '?'}
     </span>
   )
@@ -138,25 +134,27 @@ function SearchForm({ search, centerId }: { search: string; centerId: string }) 
   return (
     <form method="GET" className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="relative flex-1 min-w-0">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500"
+        <span
+          className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
           aria-hidden="true"
-        />
+          style={{ fontSize: '16px' }}
+        >
+          search
+        </span>
         <input
           type="search"
           name="search"
           defaultValue={search}
           placeholder="Search by name, nickname or email…"
-          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2 pl-9 pr-4 text-sm text-slate-200 placeholder-slate-500 transition-colors focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
+          className="w-full glass-card rounded-lg border border-white/10 py-2 pl-9 pr-4 text-sm text-on-surface placeholder:text-on-surface-variant transition-colors focus:border-primary-fixed focus:outline-none focus:ring-1 focus:ring-primary-fixed"
         />
       </div>
 
-      {/* Preserve centerId when the search form is submitted */}
       {centerId && <input type="hidden" name="center" value={centerId} />}
 
       <button
         type="submit"
-        className="shrink-0 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+        className="shrink-0 rounded-lg bg-primary-fixed px-4 py-2 text-sm font-semibold text-on-primary-fixed transition-colors hover:bg-primary-fixed-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest"
       >
         Search
       </button>
@@ -186,10 +184,10 @@ function CenterFilter({
       <Link
         href={buildHref('')}
         className={cn(
-          'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600',
+          'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed',
           !activeCenterId
-            ? 'border-green-600 bg-green-600/15 text-green-400'
-            : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200',
+            ? 'border-primary-fixed bg-primary-fixed/10 text-primary-fixed'
+            : 'glass-card text-on-surface-variant hover:text-on-surface',
         )}
       >
         All Centers
@@ -199,10 +197,10 @@ function CenterFilter({
           key={c.id}
           href={buildHref(c.id)}
           className={cn(
-            'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600',
+            'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed',
             activeCenterId === c.id
-              ? 'border-green-600 bg-green-600/15 text-green-400'
-              : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200',
+              ? 'border-primary-fixed bg-primary-fixed/10 text-primary-fixed'
+              : 'glass-card text-on-surface-variant hover:text-on-surface',
           )}
         >
           {c.name}
@@ -249,15 +247,15 @@ function Pagination({
 
   return (
     <nav
-      className="flex items-center justify-between gap-4 border-t border-slate-700/60 pt-5"
+      className="flex items-center justify-between gap-4 border-t border-white/10 pt-5"
       aria-label="Pagination"
     >
-      <p className="text-sm text-slate-400">
-        Page <span className="font-semibold text-slate-200">{page}</span> of{' '}
-        <span className="font-semibold text-slate-200">{totalPages}</span>
+      <p className="text-sm text-on-surface-variant">
+        Page <span className="font-semibold text-on-surface">{page}</span> of{' '}
+        <span className="font-semibold text-on-surface">{totalPages}</span>
         <span className="hidden sm:inline">
           {' '}—{' '}
-          <span className="font-semibold text-slate-200">{total.toLocaleString()}</span>{' '}
+          <span className="font-semibold text-on-surface">{total.toLocaleString()}</span>{' '}
           players
         </span>
       </p>
@@ -267,17 +265,17 @@ function Pagination({
           <Link
             href={buildHref(prevPage)}
             aria-label="Previous page"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800 text-slate-400 transition-colors hover:border-slate-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+            className="flex h-8 w-8 items-center justify-center rounded-md glass-card border text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_left</span>
           </Link>
         ) : (
           <span
             aria-disabled="true"
             aria-label="Previous page"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-800 text-slate-700 cursor-not-allowed"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-white/5 text-on-surface-variant/30 cursor-not-allowed"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_left</span>
           </span>
         )}
 
@@ -286,7 +284,7 @@ function Pagination({
             <span
               key={p}
               aria-current="page"
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-green-600 bg-green-600/15 text-xs font-semibold text-green-400"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-primary-fixed bg-primary-fixed/10 text-xs font-semibold text-primary-fixed"
             >
               {p}
             </span>
@@ -294,7 +292,7 @@ function Pagination({
             <Link
               key={p}
               href={buildHref(p)}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800 text-xs text-slate-400 transition-colors hover:border-slate-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+              className="flex h-8 w-8 items-center justify-center rounded-md glass-card border text-xs text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed"
             >
               {p}
             </Link>
@@ -305,17 +303,17 @@ function Pagination({
           <Link
             href={buildHref(nextPage)}
             aria-label="Next page"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 bg-slate-800 text-slate-400 transition-colors hover:border-slate-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+            className="flex h-8 w-8 items-center justify-center rounded-md glass-card border text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed"
           >
-            <ChevronRight className="h-4 w-4" />
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_right</span>
           </Link>
         ) : (
           <span
             aria-disabled="true"
             aria-label="Next page"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-800 text-slate-700 cursor-not-allowed"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-white/5 text-on-surface-variant/30 cursor-not-allowed"
           >
-            <ChevronRight className="h-4 w-4" />
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_right</span>
           </span>
         )}
       </div>
@@ -356,12 +354,12 @@ export default async function AdminPlayersPage({ searchParams }: PageProps) {
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600/15 text-green-400">
-            <Users className="h-5 w-5" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-fixed/10 text-primary-fixed">
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>group</span>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Players</h1>
-            <p className="text-sm text-slate-400">
+            <h1 className="text-xl font-bold text-on-surface">Players</h1>
+            <p className="text-sm text-on-surface-variant">
               {total.toLocaleString()} registered account{total !== 1 ? 's' : ''}
             </p>
           </div>
@@ -369,7 +367,7 @@ export default async function AdminPlayersPage({ searchParams }: PageProps) {
       </div>
 
       {/* ── Filters ── */}
-      <div className="space-y-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+      <div className="glass-card space-y-4 rounded-xl border p-4">
         <SearchForm search={search} centerId={centerId} />
         {centers.length > 0 && (
           <CenterFilter
@@ -382,21 +380,21 @@ export default async function AdminPlayersPage({ searchParams }: PageProps) {
 
       {/* ── Results count ── */}
       {total > 0 && (
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-on-surface-variant">
           Showing{' '}
-          <span className="font-semibold text-slate-200">{from}–{to}</span>
+          <span className="font-semibold text-on-surface">{from}–{to}</span>
           {' '}of{' '}
-          <span className="font-semibold text-slate-200">{total.toLocaleString()}</span>
+          <span className="font-semibold text-on-surface">{total.toLocaleString()}</span>
           {search && (
             <>
               {' '}for{' '}
-              <span className="font-semibold text-slate-200">&ldquo;{search}&rdquo;</span>
+              <span className="font-semibold text-on-surface">&ldquo;{search}&rdquo;</span>
             </>
           )}
           {centerId && centers.find((c) => c.id === centerId) && (
             <>
               {' '}in{' '}
-              <span className="font-semibold text-slate-200">
+              <span className="font-semibold text-on-surface">
                 {centers.find((c) => c.id === centerId)!.name}
               </span>
             </>
@@ -406,13 +404,13 @@ export default async function AdminPlayersPage({ searchParams }: PageProps) {
 
       {/* ── Table / empty state ── */}
       {users.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-slate-700 bg-slate-800/30 px-6 py-20 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-700">
-            <Users className="h-7 w-7 text-slate-500" />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed glass-card px-6 py-20 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+            <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>group</span>
           </div>
           <div>
-            <p className="text-base font-semibold text-slate-200">No players found</p>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="text-base font-semibold text-on-surface">No players found</p>
+            <p className="mt-1 text-sm text-on-surface-variant">
               {search || centerId
                 ? 'Try adjusting your search or filter criteria.'
                 : 'No players have registered yet.'}
@@ -421,129 +419,106 @@ export default async function AdminPlayersPage({ searchParams }: PageProps) {
           {(search || centerId) && (
             <Link
               href="/admin/players"
-              className="rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-600"
+              className="glass-card rounded-lg border px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high"
             >
               Clear filters
             </Link>
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-700">
+        <div className="overflow-hidden rounded-xl border border-white/10">
           <div className="overflow-x-auto">
             <table className="w-full min-w-215 text-sm">
               <thead>
-                <tr className="border-b border-slate-700 bg-slate-800/80">
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Player
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Email
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Center
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Role
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Level
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Points
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Joined
-                  </th>
+                <tr className="border-b border-white/10 bg-surface-container">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Player</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Email</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Center</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Role</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Level</th>
+                  <th scope="col" className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Points</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Status</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Joined</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/60">
+              <tbody className="divide-y divide-white/5">
                 {users.map((user) => (
                   <tr
                     key={user.id}
-                    className="group relative bg-slate-900 transition-colors hover:bg-slate-800/60 cursor-pointer"
+                    className="group relative bg-surface-container-lowest transition-colors hover:bg-surface-container cursor-pointer"
                   >
-                    {/* Avatar + name + nickname */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <PlayerAvatar avatarUrl={user.avatarUrl} name={user.name} />
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-slate-100 group-hover:text-white">
+                          <p className="truncate font-medium text-on-surface">
                             {user.name}
                           </p>
-                          <p className="truncate text-xs text-slate-500">@{user.nickname}</p>
+                          <p className="truncate text-xs text-on-surface-variant">@{user.nickname}</p>
                         </div>
                       </div>
                     </td>
 
-                    <td className="px-4 py-3 text-slate-400">
+                    <td className="px-4 py-3 text-on-surface-variant">
                       {user.email}
                     </td>
 
                     <td className="px-4 py-3">
                       {user.center ? (
-                        <span className="truncate text-slate-300">{user.center.name}</span>
+                        <span className="truncate text-on-surface">{user.center.name}</span>
                       ) : (
-                        <span className="text-slate-600">—</span>
+                        <span className="text-on-surface-variant/40">—</span>
                       )}
                     </td>
 
                     <td className="px-4 py-3">
-                      <Badge variant={roleBadgeVariant(user.role)}>
+                      <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold', roleBadgeClass(user.role))}>
                         {roleLabel(user.role)}
-                      </Badge>
+                      </span>
                     </td>
 
                     <td className="px-4 py-3">
                       {user.playerProfile ? (
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
-                            levelBadgeClass(user.playerProfile.level),
-                          )}
-                        >
+                        <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold', levelBadgeClass(user.playerProfile.level))}>
                           {user.playerProfile.level}
                         </span>
                       ) : (
-                        <span className="text-slate-600">—</span>
+                        <span className="text-on-surface-variant/40">—</span>
                       )}
                     </td>
 
                     <td className="px-4 py-3 text-right tabular-nums">
                       {user.playerProfile != null ? (
-                        <span className="font-semibold text-yellow-400">
+                        <span className="font-semibold text-[#FFD700]">
                           {user.playerProfile.totalPoints.toLocaleString()}
                         </span>
                       ) : (
-                        <span className="text-slate-600">—</span>
+                        <span className="text-on-surface-variant/40">—</span>
                       )}
                     </td>
 
                     <td className="px-4 py-3">
                       {user.isActive ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-400">
-                          <span className="h-1.5 w-1.5 rounded-full bg-green-400" aria-hidden="true" />
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-fixed">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary-fixed" aria-hidden="true" />
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-400">
-                          <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden="true" />
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-error">
+                          <span className="h-1.5 w-1.5 rounded-full bg-error" aria-hidden="true" />
                           Inactive
                         </span>
                       )}
                     </td>
 
-                    <td className="px-4 py-3 text-slate-500">
+                    <td className="px-4 py-3 text-on-surface-variant">
                       {formatDate(user.createdAt, 'MMM d, yyyy')}
                     </td>
 
-                    {/* Full-row click overlay — stretched absolute link */}
                     <td className="p-0">
                       <Link
                         href={`/admin/players/${user.id}`}
-                        className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600"
+                        className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-fixed"
                         aria-label={`View player ${user.name}`}
                       />
                     </td>

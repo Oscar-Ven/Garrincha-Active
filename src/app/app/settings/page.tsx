@@ -3,7 +3,8 @@
 import * as React from 'react'
 import { useTransition, useState, useEffect, useRef } from 'react'
 import { z } from 'zod'
-import { ActivityVisibility } from '@/generated/prisma'
+import { ActivityVisibility, SkillLevel } from '@/generated/prisma'
+import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +13,7 @@ import {
   loadSettingsData,
   saveProfileInfo,
   savePrivacySettings,
+  saveSkillLevel,
   changePassword,
   type SettingsData,
 } from '@/app/app/settings/actions'
@@ -84,11 +86,11 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-slate-700 bg-slate-800/50 shadow-lg">
-      <div className="border-b border-slate-700 px-6 py-4">
-        <h2 className="text-base font-semibold text-white">{title}</h2>
+    <section className="glass-card rounded-xl shadow-lg">
+      <div className="border-b border-white/10 px-6 py-4">
+        <h2 className="text-base font-semibold text-on-surface">{title}</h2>
         {description && (
-          <p className="mt-0.5 text-sm text-slate-400">{description}</p>
+          <p className="mt-0.5 text-sm text-on-surface-variant">{description}</p>
         )}
       </div>
       <div className="px-6 py-5 space-y-4">{children}</div>
@@ -109,10 +111,10 @@ function FieldWrapper({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-slate-300">{label}</label>
+      <label className="text-sm font-medium text-on-surface">{label}</label>
       {children}
-      {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {hint && !error && <p className="text-xs text-on-surface-variant">{hint}</p>}
+      {error && <p className="text-xs text-error">{error}</p>}
     </div>
   )
 }
@@ -154,7 +156,7 @@ function SaveButton({ pending, label = 'Save Changes' }: { pending: boolean; lab
 
 function ServerErrorBanner({ message }: { message: string }) {
   return (
-    <div className="rounded-md border border-red-700 bg-red-900/30 px-4 py-3 text-sm text-red-300">
+    <div className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
       {message}
     </div>
   )
@@ -169,7 +171,7 @@ function ProfileInfoSection({
   initial,
 }: {
   userId: string
-  initial: Omit<SettingsData, 'id' | 'defaultVisibility' | 'avatarUrl'>
+  initial: Omit<SettingsData, 'id' | 'defaultVisibility' | 'avatarUrl' | 'skillLevel'>
 }) {
   const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
@@ -258,7 +260,7 @@ function ProfileInfoSection({
             hint="Unique handle. Letters, numbers, _ . - only."
           >
             <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400 text-sm">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-on-surface-variant text-sm">
                 @
               </span>
               <Input
@@ -286,8 +288,8 @@ function ProfileInfoSection({
             onChange={(e) => setBio(e.target.value)}
             placeholder="Tell the community a little about yourself..."
             className={cn(
-              'w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-400',
-              'focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-green-600',
+              'w-full rounded-md border border-white/10 bg-surface-container px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant',
+              'focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:border-primary-fixed',
               'disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-colors duration-150',
             )}
           />
@@ -389,7 +391,6 @@ function PrivacySection({
           setServerError(error)
           return
         }
-        // Persist in localStorage — schema has no dedicated column for this pref
         localStorage.setItem(VISIBILITY_PREF_KEY, visibility)
         const label =
           VISIBILITY_OPTIONS.find((o) => o.value === visibility)?.label ?? visibility
@@ -415,7 +416,7 @@ function PrivacySection({
         {serverError && <ServerErrorBanner message={serverError} />}
 
         <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-300">Default Activity Visibility</p>
+          <p className="text-sm font-medium text-on-surface">Default Activity Visibility</p>
           <div className="space-y-2">
             {VISIBILITY_OPTIONS.map((opt) => (
               <label
@@ -423,8 +424,8 @@ function PrivacySection({
                 className={cn(
                   'flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors',
                   visibility === opt.value
-                    ? 'border-green-600 bg-green-900/20'
-                    : 'border-slate-700 bg-slate-800/40 hover:border-slate-600',
+                    ? 'border-primary-fixed bg-primary-fixed/10'
+                    : 'glass-card hover:bg-surface-container-high',
                 )}
               >
                 <input
@@ -433,18 +434,18 @@ function PrivacySection({
                   value={opt.value}
                   checked={visibility === opt.value}
                   onChange={() => setVisibility(opt.value)}
-                  className="mt-0.5 h-4 w-4 accent-green-600"
+                  className="mt-0.5 h-4 w-4 accent-[#c3f400]"
                 />
                 <div>
-                  <p className="text-sm font-medium text-white">{opt.label}</p>
-                  <p className="text-xs text-slate-400">{opt.description}</p>
+                  <p className="text-sm font-medium text-on-surface">{opt.label}</p>
+                  <p className="text-xs text-on-surface-variant">{opt.description}</p>
                 </div>
               </label>
             ))}
           </div>
         </div>
 
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-on-surface-variant">
           This applies to new activities you log. You can always override visibility on individual
           activities.
         </p>
@@ -481,14 +482,14 @@ function RevealPasswordInput({
         type={show ? 'text' : 'password'}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className={cn('pr-10', error && 'border-red-600 focus:ring-red-600')}
+        className={cn('pr-10', error && 'border-error focus:ring-error')}
       />
       <button
         type="button"
         onClick={() => setShow((s) => !s)}
         aria-label={show ? 'Hide password' : 'Show password'}
         tabIndex={-1}
-        className="absolute inset-y-0 right-2 flex items-center text-slate-400 hover:text-slate-200 transition-colors focus:outline-none"
+        className="absolute inset-y-0 right-2 flex items-center text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none"
       >
         {show ? (
           <svg
@@ -672,9 +673,9 @@ function AvatarSection({ userId, currentAvatarUrl }: { userId: string; currentAv
         <div className="relative shrink-0">
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt="Avatar" className="h-20 w-20 rounded-full object-cover ring-2 ring-slate-600" />
+            <img src={preview} alt="Avatar" className="h-20 w-20 rounded-full object-cover ring-2 ring-white/20" />
           ) : (
-            <div className="h-20 w-20 rounded-full bg-green-700/40 ring-2 ring-slate-600 flex items-center justify-center text-xl font-bold text-green-300">
+            <div className="h-20 w-20 rounded-full bg-primary-fixed/10 ring-2 ring-white/20 flex items-center justify-center text-xl font-bold text-primary-fixed">
               {initials}
             </div>
           )}
@@ -692,12 +693,119 @@ function AvatarSection({ userId, currentAvatarUrl }: { userId: string; currentAv
             type="button"
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
-            className="rounded-lg border border-slate-600 bg-slate-700 hover:bg-slate-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 transition-colors"
+            className="glass-card rounded-lg px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-high disabled:opacity-50 transition-colors"
           >
             {uploading ? 'Uploading…' : 'Change Photo'}
           </button>
-          <p className="text-xs text-slate-500">JPEG, PNG, WebP or GIF · Max 5 MB</p>
+          <p className="text-xs text-on-surface-variant">JPEG, PNG, WebP or GIF · Max 5 MB</p>
         </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Skill Level Section
+// ---------------------------------------------------------------------------
+
+const SKILL_LEVELS: { value: SkillLevel; label: string; desc: string }[] = [
+  { value: SkillLevel.BEGINNER,      label: 'Beginner',      desc: 'Just getting started' },
+  { value: SkillLevel.RECREATIONAL,  label: 'Recreational',  desc: 'Play for fun' },
+  { value: SkillLevel.INTERMEDIATE,  label: 'Intermediate',  desc: 'Consistent technique' },
+  { value: SkillLevel.ADVANCED,      label: 'Advanced',      desc: 'Competitive level' },
+  { value: SkillLevel.EXPERT,        label: 'Expert',        desc: 'Elite / professional' },
+]
+
+function SkillLevelSection({
+  userId,
+  initial,
+}: {
+  userId: string
+  initial: SkillLevel | null
+}) {
+  const [selected, setSelected] = useState<SkillLevel | null>(initial)
+  const [pending, startTransition] = useTransition()
+  const { toast } = useToast()
+
+  function handleSelect(level: SkillLevel) {
+    const next = selected === level ? null : level
+    setSelected(next)
+    startTransition(async () => {
+      const res = await saveSkillLevel(userId, next)
+      if (res.error) toast({ variant: 'destructive', title: res.error, duration: 4000 })
+      else toast({ variant: 'success', title: 'Skill level saved.', duration: 2000 })
+    })
+  }
+
+  return (
+    <SectionCard
+      title="Skill Level"
+      description="Shown on your profile and used to match open games."
+    >
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+        {SKILL_LEVELS.map((sl) => {
+          const active = selected === sl.value
+          return (
+            <button
+              key={sl.value}
+              type="button"
+              disabled={pending}
+              onClick={() => handleSelect(sl.value)}
+              className={cn(
+                'rounded-lg border px-3 py-3 text-left transition-colors',
+                active
+                  ? 'border-primary-fixed bg-primary-fixed/10 text-primary-fixed'
+                  : 'glass-card text-on-surface hover:bg-surface-container-high',
+              )}
+            >
+              <div className="text-sm font-semibold">{sl.label}</div>
+              <div className={cn('text-xs mt-0.5', active ? 'text-primary-fixed/70' : 'text-on-surface-variant')}>{sl.desc}</div>
+            </button>
+          )
+        })}
+      </div>
+    </SectionCard>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Push Notifications Section
+// ---------------------------------------------------------------------------
+
+function PushNotificationsSection() {
+  const { permission, subscribed, subscribe, unsubscribe } = usePushNotifications()
+
+  if (typeof window === 'undefined' || !('Notification' in window)) return null
+
+  return (
+    <SectionCard
+      title="Push Notifications"
+      description="Get instant alerts for session reminders, kudos, and badge unlocks."
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm text-on-surface">
+            {permission === 'granted' && subscribed
+              ? 'Notifications are enabled on this device.'
+              : permission === 'denied'
+              ? 'Notifications are blocked in your browser settings.'
+              : 'Enable push notifications to stay in the loop.'}
+          </p>
+        </div>
+        {permission !== 'denied' && (
+          <button
+            type="button"
+            onClick={subscribed ? unsubscribe : subscribe}
+            className={cn(
+              'shrink-0 rounded-xl px-4 py-2 text-sm font-semibold transition-colors',
+              subscribed
+                ? 'glass-card text-on-surface hover:bg-surface-container-high'
+                : 'bg-primary-fixed text-on-primary-fixed hover:bg-primary-fixed-dim',
+            )}
+          >
+            {subscribed ? 'Turn off' : 'Enable'}
+          </button>
+        )}
       </div>
     </SectionCard>
   )
@@ -709,17 +817,17 @@ function AvatarSection({ userId, currentAvatarUrl }: { userId: string; currentAv
 
 function SkeletonCard({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-800/50 animate-pulse">
-      <div className="border-b border-slate-700 px-6 py-4 space-y-1.5">
-        <div className="h-4 w-44 rounded bg-slate-700" />
-        <div className="h-3 w-64 rounded bg-slate-700/60" />
+    <div className="glass-card rounded-xl animate-pulse">
+      <div className="border-b border-white/10 px-6 py-4 space-y-1.5">
+        <div className="h-4 w-44 rounded bg-surface-container-highest" />
+        <div className="h-3 w-64 rounded bg-surface-container-highest/60" />
       </div>
       <div className="px-6 py-5 space-y-4">
         {Array.from({ length: rows }, (_, i) => (
-          <div key={i} className="h-10 rounded-md bg-slate-700" />
+          <div key={i} className="h-10 rounded-md bg-surface-container-highest" />
         ))}
         <div className="flex justify-end">
-          <div className="h-10 w-32 rounded-md bg-slate-700" />
+          <div className="h-10 w-32 rounded-md bg-surface-container-highest" />
         </div>
       </div>
     </div>
@@ -749,7 +857,6 @@ export default function SettingsPage() {
           return
         }
 
-        // Merge in locally stored visibility preference if present and valid
         const stored = localStorage.getItem(VISIBILITY_PREF_KEY) as ActivityVisibility | null
         if (stored && (Object.values(ActivityVisibility) as string[]).includes(stored)) {
           data.defaultVisibility = stored
@@ -773,15 +880,15 @@ export default function SettingsPage() {
     <div className="space-y-8">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="text-2xl font-bold text-on-surface">Settings</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
           Manage your profile, privacy preferences, and account security.
         </p>
       </div>
 
       {/* Auth error */}
       {authError && !loading && (
-        <div className="rounded-lg border border-red-700 bg-red-900/30 px-6 py-4 text-sm text-red-300">
+        <div className="rounded-lg border border-error/30 bg-error/10 px-6 py-4 text-sm text-error">
           Unable to load your settings. Please refresh the page or log in again.
         </div>
       )}
@@ -813,10 +920,17 @@ export default function SettingsPage() {
             }}
           />
 
+          <SkillLevelSection
+            userId={userData.id}
+            initial={userData.skillLevel}
+          />
+
           <PrivacySection
             userId={userData.id}
             initial={userData.defaultVisibility}
           />
+
+          <PushNotificationsSection />
 
           <ChangePasswordSection userId={userData.id} />
         </>

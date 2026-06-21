@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth'
-import { ActivityVisibility } from '@/generated/prisma'
+import { ActivityVisibility, SkillLevel } from '@/generated/prisma'
 
 export interface SettingsData {
   id: string
@@ -13,6 +13,7 @@ export interface SettingsData {
   dateOfBirth: string | null
   bio: string | null
   favoriteSport: string | null
+  skillLevel: SkillLevel | null
   defaultVisibility: ActivityVisibility
   avatarUrl: string | null
 }
@@ -35,6 +36,7 @@ export async function loadSettingsData(): Promise<SettingsData | null> {
         select: {
           bio: true,
           favoriteSport: true,
+          skillLevel: true,
         },
       },
     },
@@ -51,6 +53,7 @@ export async function loadSettingsData(): Promise<SettingsData | null> {
     dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString() : null,
     bio: user.playerProfile?.bio ?? null,
     favoriteSport: user.playerProfile?.favoriteSport ?? null,
+    skillLevel: user.playerProfile?.skillLevel ?? null,
     avatarUrl: user.avatarUrl ?? null,
     // Default — client merges in localStorage pref if set
     defaultVisibility: ActivityVisibility.PUBLIC,
@@ -124,6 +127,22 @@ export async function savePrivacySettings(
     where: { userId },
     create: { userId },
     update: {},
+  })
+
+  return {}
+}
+
+export async function saveSkillLevel(
+  userId: string,
+  skillLevel: SkillLevel | null,
+): Promise<{ error?: string }> {
+  const session = await getCurrentUser()
+  if (!session || session.id !== userId) return { error: 'Unauthorized.' }
+
+  await prisma.playerProfile.upsert({
+    where: { userId },
+    create: { userId, skillLevel },
+    update: { skillLevel },
   })
 
   return {}
