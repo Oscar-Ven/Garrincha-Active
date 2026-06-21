@@ -3,13 +3,43 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { toggleFollow } from '@/app/app/feed/actions'
-import { ActivityType } from '@/generated/prisma'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { UserCheck, UserPlus, MapPin, MessageSquare, Flame, Leaf, Trophy } from 'lucide-react'
 import { getSportRatings } from '@/services/matches'
 import { sportEloLabel } from '@/lib/match-elo'
-import { activityTypeLabel, activityTypeIcon } from '@/lib/utils'
+import { Level } from '@/generated/prisma'
+import type { ActivityType } from '@/generated/prisma'
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const user = await prisma.user.findUnique({ where: { id }, select: { name: true } })
+  return { title: user ? `${user.name} | GG` : 'Player Profile' }
+}
+
+const LEVEL_LABEL: Record<Level, string> = {
+  BRONZE: 'Bronze',
+  SILVER: 'Silver',
+  GOLD: 'Gold',
+  ELITE: 'Elite',
+}
+
+function sportIcon(type: ActivityType | string): string {
+  const map: Partial<Record<string, string>> = {
+    TENNIS: 'sports_tennis', PADEL: 'sports_tennis',
+    SQUASH: 'sports_handball', BADMINTON: 'sports_badminton',
+    PICKLEBALL: 'sports_tennis', RACQUETBALL: 'sports_handball',
+    RUN: 'directions_run', WALK: 'directions_walk',
+    CYCLING: 'directions_bike', FITNESS: 'fitness_center',
+    FOOTBALL_TRAINING: 'sports_soccer', FOOTBALL_MATCH: 'sports_soccer',
+  }
+  return map[type as string] ?? 'sports'
+}
+
+function sportLabel(type: string): string {
+  return type.replace(/_/g, ' ').split(' ').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')
+}
+
+function initials(name: string) {
+  return name.split(' ').slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('')
+}
 
 async function startConversation(currentUserId: string, otherId: string): Promise<void> {
   'use server'
@@ -23,53 +53,37 @@ async function startConversation(currentUserId: string, otherId: string): Promis
   redirect(`/app/messages/${conv.id}`)
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const user = await prisma.user.findUnique({ where: { id }, select: { name: true } })
-  return { title: user ? `${user.name} | Garrincha Active` : 'Player' }
-}
-
-const TYPE_EMOJI: Record<ActivityType, string> = {
-  RUN: '🏃', WALK: '🚶', CYCLING: '🚴', FOOTBALL_TRAINING: '⚽',
-  FOOTBALL_MATCH: '🏟️', FITNESS: '💪', CUSTOM: '🎯',
-  PADEL: '🎾', TENNIS: '🎾', SQUASH: '🏸', PICKLEBALL: '🏓', BADMINTON: '🏸', RACQUETBALL: '🎾',
-}
-
-function getInitials(name: string) {
-  return name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
-}
-
 export default async function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const currentUser = await getCurrentUser()
   if (!currentUser) redirect('/login')
 
-  const [player, isFollowing, sportRatings] = await Promise.all([
+  const [player, isFollowing, matchesForPlayer, topSports, sportRatings] = await Promise.all([
     prisma.user.findFirst({
       where: { id, role: 'PLAYER' },
       include: {
         playerProfile: true,
         center: { select: { name: true, city: true } },
-        activities: {
-          where: { status: 'APPROVED', visibility: { in: ['PUBLIC', 'FOLLOWERS'] } },
-          orderBy: { startedAt: 'desc' },
-          take: 8,
-          select: { id: true, title: true, type: true, distanceKm: true, durationMinutes: true, startedAt: true },
-        },
-        personalRecords: {
-          orderBy: { recordedAt: 'desc' },
-          take: 6,
-        },
-        userBadges: {
-          include: { badge: true },
-          orderBy: { awardedAt: 'desc' },
-          take: 12,
-        },
-        _count: { select: { followers: true, following: true, activities: true } },
+        userBadges: { include: { badge: true }, orderBy: { awardedAt: 'desc' } },
+        _count: { select: { followers: true, following: true } },
       },
     }),
     prisma.follow.findUnique({
       where: { followerId_followingId: { followerId: currentUser.id, followingId: id } },
+    }),
+    prisma.matchResult.findMany({
+      where: { participants: { some: { userId: id } }, status: 'CONFIRMED' },
+      select: {
+        winnerSide: true,
+        participants: { where: { userId: id }, select: { role: true } },
+      },
+    }),
+    prisma.activity.groupBy({
+      by: ['type'],
+      where: { userId: id, status: 'APPROVED' },
+      _count: { type: true },
+      orderBy: [{ _count: { type: 'desc' } }],
+      take: 4,
     }),
     getSportRatings(id),
   ])
@@ -79,193 +93,219 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
   const { playerProfile: profile } = player
   const isSelf = currentUser.id === id
 
-  const PR_LABELS: Record<string, string> = {
-    FASTEST_1KM: 'Fastest 1 km', FASTEST_5KM: 'Fastest 5 km',
-    FASTEST_10KM: 'Fastest 10 km', LONGEST_RUN: 'Longest Run',
-    LONGEST_RIDE: 'Longest Ride', MOST_ACTIVITIES_WEEK: 'Best Week',
-  }
+  const level = profile.level ?? Level.BRONZE
 
-  function formatPR(type: string, value: number) {
-    if (type.startsWith('FASTEST')) {
-      const m = Math.floor(value / 60); const s = Math.round(value % 60)
-      return `${m}m ${s.toString().padStart(2, '0')}s`
-    }
-    if (type === 'MOST_ACTIVITIES_WEEK') return `${value} activities`
-    return `${value.toFixed(1)} km`
-  }
+  // Win rate
+  const totalConfirmed = matchesForPlayer.length
+  const wonCount = matchesForPlayer.filter(m => {
+    const p = m.participants[0]
+    if (!m.winnerSide || !p) return false
+    return (m.winnerSide === 'HOME' && (p.role === 'HOME' || p.role === 'HOME_PARTNER')) ||
+           (m.winnerSide === 'AWAY' && (p.role === 'AWAY' || p.role === 'AWAY_PARTNER'))
+  }).length
+  const winRate = totalConfirmed > 0 ? Math.round((wonCount / totalConfirmed) * 100) : 0
+
+  const nameInitials = initials(player.name)
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      {/* Profile header */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <Avatar size="lg" className="shrink-0 h-20 w-20">
-              {player.avatarUrl && <AvatarImage src={player.avatarUrl} alt={player.name} />}
-              <AvatarFallback className="text-xl">{getInitials(player.name)}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-white">{player.name}</h1>
-              <p className="text-slate-400 text-sm">@{player.nickname}</p>
-              {player.center && (
-                <p className="text-slate-500 text-xs mt-1 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {player.center.name}{player.center.city ? `, ${player.center.city}` : ''}
-                </p>
-              )}
-              {profile.bio && <p className="text-slate-300 text-sm mt-2">{profile.bio}</p>}
-
-              <div className="flex items-center gap-4 mt-3 text-sm">
-                <span className="text-white font-semibold">{player._count.followers}</span>
-                <span className="text-slate-400">followers</span>
-                <span className="text-white font-semibold">{player._count.following}</span>
-                <span className="text-slate-400">following</span>
-                <span className="text-white font-semibold">{player._count.activities}</span>
-                <span className="text-slate-400">activities</span>
-              </div>
+    <div className="max-w-xl mx-auto space-y-lg">
+      {/* ── Hero ─────────────────────────────────────────────────── */}
+      <section className="flex flex-col items-center text-center space-y-md">
+        {/* Avatar */}
+        <div className="relative">
+          <div
+            className="w-32 h-32 rounded-full p-1 border-2 border-primary-fixed-dim"
+            style={{ boxShadow: '0 0 30px rgba(171,214,0,0.2)' }}
+          >
+            <div className="w-full h-full rounded-full bg-surface-container-highest flex items-center justify-center text-4xl font-bold text-white select-none">
+              {nameInitials}
             </div>
-
-            {!isSelf && (
-              <div className="flex flex-col gap-2">
-                <form action={async () => { 'use server'; await toggleFollow(id) }}>
-                  <button
-                    type="submit"
-                    className={`flex w-full items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                      isFollowing
-                        ? 'border border-slate-600 text-slate-300 hover:border-red-600 hover:text-red-400'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
-                  >
-                    {isFollowing ? <><UserCheck className="h-4 w-4" /> Following</> : <><UserPlus className="h-4 w-4" /> Follow</>}
-                  </button>
-                </form>
-                <form action={startConversation.bind(null, currentUser.id, id)}>
-                  <button
-                    type="submit"
-                    className="flex w-full items-center gap-2 rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-300 hover:border-slate-400 hover:text-white transition-colors"
-                  >
-                    <MessageSquare className="h-4 w-4" /> Message
-                  </button>
-                </form>
-              </div>
-            )}
           </div>
-        </CardContent>
-      </Card>
+          <div className="absolute bottom-1 right-1 bg-primary-fixed-dim text-on-primary-fixed px-3 py-0.5 rounded-full text-label-caps border-2 border-surface-container-lowest flex items-center gap-1">
+            <div className="w-2 h-2 bg-on-primary-fixed rounded-full pulse-green" />
+            {LEVEL_LABEL[level]}
+          </div>
+        </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Points', value: profile.totalPoints.toLocaleString(), unit: 'pts', color: 'text-yellow-400' },
-          { label: 'Distance', value: profile.totalDistance.toFixed(1), unit: 'km', color: 'text-blue-400' },
-          { label: 'Streak', value: profile.streakDays.toString(), unit: 'days', color: 'text-orange-400' },
-          { label: 'CO₂ Saved', value: (profile.carbonSavedKg ?? 0).toFixed(1), unit: 'kg', color: 'text-green-400' },
-        ].map((s) => (
-          <Card key={s.label} className="bg-slate-800 border-slate-700">
-            <CardContent className="p-4 text-center">
-              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-slate-400">{s.unit}</p>
-              <p className="text-xs text-slate-500">{s.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        {/* Name / bio */}
+        <div className="space-y-xs">
+          <h2 className="text-headline-lg text-on-surface">{player.name}</h2>
+          {player.center && (
+            <p className="text-label-caps text-on-surface-variant flex items-center justify-center gap-1">
+              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>location_on</span>
+              {player.center.name}{player.center.city ? `, ${player.center.city}` : ''}
+            </p>
+          )}
+          <p className="text-body-md text-on-surface-variant max-w-xs mx-auto">
+            {profile.bio ?? `@${player.nickname} · ${player._count.followers} followers`}
+          </p>
+        </div>
 
-      {/* Personal Records */}
-      {player.personalRecords.length > 0 && (
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-base flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-yellow-400" /> Personal Records
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              {player.personalRecords.map((pr) => (
-                <div key={pr.id} className="rounded-lg bg-slate-700/40 p-3">
-                  <p className="text-xs text-slate-400">{PR_LABELS[pr.type] ?? pr.type}</p>
-                  <p className="text-white font-bold text-lg">{formatPR(pr.type, pr.value)}</p>
-                </div>
-              ))}
+        {/* Action buttons */}
+        {!isSelf && (
+          <div className="flex gap-md w-full pt-md">
+            <form
+              action={async () => { 'use server'; await toggleFollow(id) }}
+              className="flex-1"
+            >
+              <button
+                type="submit"
+                className="w-full bg-primary-fixed-dim text-on-primary font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all"
+              >
+                {isFollowing ? 'UNFOLLOW' : 'FOLLOW'}
+              </button>
+            </form>
+            <form action={startConversation.bind(null, currentUser.id, id)}>
+              <button
+                type="submit"
+                className="flex items-center justify-center border-2 border-secondary-container text-secondary-container px-4 py-3 rounded-xl active:scale-95 transition-all"
+                aria-label="Message"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>chat_bubble</span>
+              </button>
+            </form>
+          </div>
+        )}
+        {isSelf && (
+          <Link
+            href="/app/profile"
+            className="w-full bg-primary-fixed-dim text-on-primary font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all text-center mt-md"
+          >
+            EDIT PROFILE
+          </Link>
+        )}
+      </section>
+
+      {/* ── Stats Bento ──────────────────────────────────────────── */}
+      <section className="grid grid-cols-2 gap-md">
+        {/* Win Rate */}
+        <div className="glass-card rounded-xl p-md flex flex-col justify-between aspect-square">
+          <span className="text-label-caps text-on-surface-variant">Win Rate</span>
+          <div className="flex flex-col items-center justify-center flex-1">
+            <span className="text-stats-xl text-primary-fixed-dim">{winRate}%</span>
+            <div className="w-full bg-surface-container-highest h-1 rounded-full mt-sm overflow-hidden">
+              <div
+                className="bg-primary-fixed-dim h-full rounded-full transition-all"
+                style={{ width: `${winRate}%` }}
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <p className="text-label-caps text-on-surface-variant mt-xs">
+              {wonCount}W / {totalConfirmed - wonCount}L
+            </p>
+          </div>
+        </div>
 
-      {/* Badges */}
-      {player.userBadges.length > 0 && (
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-base">Badges</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {player.userBadges.map((ub) => (
-                <div
-                  key={ub.id}
-                  title={ub.badge.description}
-                  className="flex items-center gap-1.5 rounded-full border border-yellow-700/40 bg-yellow-900/20 px-3 py-1 text-xs font-medium text-yellow-300"
-                >
-                  🏅 {ub.badge.name}
-                </div>
-              ))}
+        {/* Right column */}
+        <div className="flex flex-col gap-md">
+          <div className="glass-card rounded-xl p-md flex-1 flex flex-col justify-between">
+            <span className="text-label-caps text-on-surface-variant">Matches</span>
+            <span className="text-headline-md text-on-surface">{totalConfirmed}</span>
+          </div>
+          <div className="glass-card rounded-xl p-md flex-1 flex flex-col justify-between">
+            <span className="text-label-caps text-on-surface-variant">Elo Rating</span>
+            <div className="flex items-center gap-2">
+              <span
+                className="material-symbols-outlined text-primary-fixed-dim"
+                style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}
+              >
+                verified
+              </span>
+              <span className="text-headline-md text-on-surface">{profile.eloRating}</span>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </div>
+      </section>
 
-      {/* Sport Ratings */}
-      {sportRatings.length > 0 && (
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-base">Sport Ratings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {sportRatings.map((r) => (
-                <div key={r.id} className="rounded-lg bg-slate-700/40 p-3">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-sm">{activityTypeIcon(r.sport as never)}</span>
-                    <span className="text-xs text-slate-400 font-medium">{activityTypeLabel(r.sport as never)}</span>
-                  </div>
-                  <p className="text-white font-bold text-xl">{r.rating}</p>
-                  <p className="text-xs text-slate-400">{sportEloLabel(r.rating)}</p>
-                  <p className="text-xs text-slate-500 mt-1">{r.wins}W / {r.losses}L</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent Activities */}
-      {player.activities.length > 0 && (
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-base">Recent Activities</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {player.activities.map((a) => (
-              <div key={a.id} className="flex items-center gap-3 rounded-lg bg-slate-700/30 px-3 py-2">
-                <span className="text-lg">{TYPE_EMOJI[a.type as ActivityType]}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{a.title}</p>
-                  <p className="text-xs text-slate-400">
-                    {a.distanceKm ? `${a.distanceKm.toFixed(1)} km · ` : ''}{a.durationMinutes} min
-                  </p>
-                </div>
-                <p className="text-xs text-slate-500 shrink-0">
-                  {new Date(a.startedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                </p>
+      {/* ── Sports Played ────────────────────────────────────────── */}
+      {topSports.length > 0 && (
+        <section className="space-y-sm">
+          <h3 className="text-label-caps text-on-surface-variant px-xs">Sports Played</h3>
+          <div className="flex gap-sm flex-wrap">
+            {topSports.map(({ type }) => (
+              <div
+                key={type}
+                className="bg-surface-container rounded-xl px-4 py-3 flex items-center gap-3 border border-outline-variant/30"
+              >
+                <span className="material-symbols-outlined text-primary-fixed-dim" style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}>
+                  {sportIcon(type)}
+                </span>
+                <span className="text-label-caps text-on-surface">{sportLabel(type)}</span>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
+      {/* ── Sport Ratings ────────────────────────────────────────── */}
+      {sportRatings.length > 0 && (
+        <section className="space-y-sm">
+          <h3 className="text-label-caps text-on-surface-variant px-xs">Sport Ratings</h3>
+          <div className="grid grid-cols-2 gap-sm">
+            {sportRatings.map(r => (
+              <div key={r.id} className="glass-card rounded-xl p-md">
+                <div className="flex items-center gap-2 mb-xs">
+                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>
+                    {sportIcon(r.sport)}
+                  </span>
+                  <span className="text-label-caps text-on-surface-variant">{sportLabel(r.sport)}</span>
+                </div>
+                <p className="text-headline-md text-on-surface">{r.rating}</p>
+                <p className="text-label-caps text-secondary">{sportEloLabel(r.rating)}</p>
+                <p className="text-label-caps text-on-surface-variant mt-xs">{r.wins}W / {r.losses}L</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Trophy Cabinet ───────────────────────────────────────── */}
+      <section className="space-y-sm">
+        <h3 className="text-label-caps text-on-surface-variant px-xs">Trophy Cabinet</h3>
+        {player.userBadges.length === 0 ? (
+          <div className="glass-card rounded-xl p-md py-8 text-center text-on-surface-variant text-label-caps">
+            No trophies yet.
+          </div>
+        ) : (
+          <div className="glass-card rounded-xl p-md overflow-x-auto scrollbar-none">
+            <div className="flex gap-lg min-w-max">
+              {player.userBadges.slice(0, 10).map(ub => (
+                <div key={ub.id} className="flex flex-col items-center gap-2 w-17.5">
+                  <div className="w-14 h-14 rounded-full border-2 border-primary-fixed-dim flex items-center justify-center bg-primary-container/10">
+                    <span
+                      className="material-symbols-outlined text-primary-fixed-dim"
+                      style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
+                    >
+                      military_tech
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-on-surface-variant text-center leading-tight uppercase">
+                    {ub.badge.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── Challenge ────────────────────────────────────────────── */}
       {!isSelf && (
-        <Link href={`/app/challenges/direct/new?challengee=${id}`} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 text-sm font-medium transition-colors">
-          ⚔️ Challenge {player.name.split(' ')[0]} to a 1v1
+        <Link
+          href={`/app/challenges/direct/new?challengee=${id}`}
+          className="glass-card rounded-xl p-md flex items-center gap-md hover:bg-surface-container-high transition-colors active:scale-95"
+        >
+          <div className="w-10 h-10 rounded-lg bg-primary-fixed/10 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-primary-fixed" style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}>
+              sports_kabaddi
+            </span>
+          </div>
+          <div>
+            <p className="text-body-md font-bold text-white">Challenge {player.name.split(' ')[0]}</p>
+            <p className="text-label-caps text-on-surface-variant">Send a 1v1 duel invite</p>
+          </div>
+          <span className="material-symbols-outlined text-on-surface-variant ml-auto" style={{ fontSize: '20px' }}>
+            chevron_right
+          </span>
         </Link>
       )}
     </div>

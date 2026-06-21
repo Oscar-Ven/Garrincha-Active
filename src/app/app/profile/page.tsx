@@ -2,362 +2,368 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ActivityCard } from '@/components/player/activity-card'
-import { formatDistance, formatDuration, formatDate } from '@/lib/utils'
-import { Settings, Award, Activity, Clock, MapPin } from 'lucide-react'
+import { getLevelThreshold } from '@/lib/utils'
+import { getSportRatings } from '@/services/matches'
+import { sportEloLabel } from '@/lib/match-elo'
+import { Level, ActivityType } from '@/generated/prisma'
 import StravaSection from './StravaSection'
+
+export const revalidate = 60
 
 interface ProfilePageProps {
   searchParams: Promise<{ strava?: string; error?: string; athlete?: string }>
 }
+
+const LEVEL_LABEL: Record<Level, string> = {
+  BRONZE: 'Bronze',
+  SILVER: 'Silver',
+  GOLD: 'Gold',
+  ELITE: 'Elite',
+}
+
+const LEVEL_NEXT: Record<Level, number> = {
+  BRONZE: 500,
+  SILVER: 2000,
+  GOLD: 5000,
+  ELITE: 5000,
+}
+
+function xpPercent(level: Level, pts: number): number {
+  if (level === Level.ELITE) return 100
+  const floor = getLevelThreshold(level)
+  const ceil = LEVEL_NEXT[level]
+  return Math.min(100, Math.max(0, Math.round(((pts - floor) / (ceil - floor)) * 100)))
+}
+
+function sportIcon(type: ActivityType | string): string {
+  const map: Partial<Record<string, string>> = {
+    TENNIS: 'sports_tennis', PADEL: 'sports_tennis',
+    SQUASH: 'sports_handball', BADMINTON: 'sports_badminton',
+    PICKLEBALL: 'sports_tennis', RACQUETBALL: 'sports_handball',
+    RUN: 'directions_run', WALK: 'directions_walk',
+    CYCLING: 'directions_bike', FITNESS: 'fitness_center',
+    FOOTBALL_TRAINING: 'sports_soccer', FOOTBALL_MATCH: 'sports_soccer',
+  }
+  return map[type as string] ?? 'sports'
+}
+
+function sportLabel(type: string): string {
+  return type.replace(/_/g, ' ').split(' ').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')
+}
+
+function initials(name: string) {
+  return name.split(' ').slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('')
+}
+
+// Loyalty tier config
+const TIERS = [
+  { key: 'MEMBER',      minMinutes: 0,    nextMinutes: 270,  color: 'from-amber-600 to-amber-700', textColor: 'text-amber-400', borderColor: 'border-amber-600/30', bgColor: 'bg-amber-600/10', benefits: ['Access to all Garrincha facilities', 'Earn points on every activity', 'Community feed access'] },
+  { key: 'RISING STAR', minMinutes: 270,  nextMinutes: 630,  color: 'from-slate-400 to-slate-500', textColor: 'text-slate-300', borderColor: 'border-slate-500/30',  bgColor: 'bg-slate-500/10',  benefits: ['Priority booking (48h window)', '5% discount on all sessions', 'Rising Star events'] },
+  { key: 'STAR',        minMinutes: 630,  nextMinutes: 1080, color: 'from-yellow-500 to-yellow-600', textColor: 'text-yellow-400', borderColor: 'border-yellow-500/30', bgColor: 'bg-yellow-500/10', benefits: ['Priority booking (72h window)', '10% discount on all sessions', 'Star lounge access'] },
+  { key: 'ALL-STAR',    minMinutes: 1080, nextMinutes: null, color: 'from-purple-500 to-purple-600', textColor: 'text-purple-400', borderColor: 'border-purple-500/30',  bgColor: 'bg-purple-500/10',  benefits: ['VIP booking (7-day window)', '20% discount', 'Free merch annually', 'Exclusive events'] },
+] as const
 
 export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const { strava, error: queryError, athlete: athleteName } = await searchParams
   const session = await getCurrentUser()
   if (!session) redirect('/login')
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.id },
-    include: {
-      playerProfile: true,
-      center: { select: { name: true, city: true } },
-      userBadges: { include: { badge: true }, orderBy: { awardedAt: 'desc' } },
-      _count: { select: { followers: true, following: true } },
-    },
-  })
+  const ninetyDaysAgo = new Date()
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+
+  const [user, matchesForUser, topSports, sportRatings, stravaAccount, ninetyDayResult] =
+    await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.id },
+        include: {
+          playerProfile: true,
+          center: { select: { name: true, city: true } },
+          userBadges: { include: { badge: true }, orderBy: { awardedAt: 'desc' } },
+          _count: { select: { followers: true, following: true } },
+        },
+      }),
+      prisma.matchResult.findMany({
+        where: { participants: { some: { userId: session.id } }, status: 'CONFIRMED' },
+        select: {
+          winnerSide: true,
+          participants: { where: { userId: session.id }, select: { role: true } },
+        },
+      }),
+      prisma.activity.groupBy({
+        by: ['type'],
+        where: { userId: session.id, status: 'APPROVED' },
+        _count: { type: true },
+        orderBy: [{ _count: { type: 'desc' } }],
+        take: 4,
+      }),
+      getSportRatings(session.id),
+      prisma.oAuthAccount.findFirst({
+        where: { userId: session.id, provider: 'strava' },
+        select: { id: true },
+      }),
+      prisma.activity.aggregate({
+        where: { userId: session.id, status: 'APPROVED', startedAt: { gte: ninetyDaysAgo } },
+        _sum: { durationMinutes: true },
+      }),
+    ])
 
   if (!user) redirect('/login')
 
-  const recentActivities = await prisma.activity.findMany({
-    where: { userId: session.id, status: 'APPROVED' },
-    orderBy: { startedAt: 'desc' },
-    take: 5,
-    include: { user: { select: { name: true, nickname: true, avatarUrl: true } } },
-  })
-
-  const pointsHistory = await prisma.pointsLedger.findMany({
-    where: { userId: session.id },
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-  })
-
-  // Strava connection
-  const stravaAccount = await prisma.oAuthAccount.findFirst({
-    where: { userId: session.id, provider: 'strava' },
-    select: { id: true, providerAccountId: true },
-  })
-
-  // 90-day tier calculation
-  const ninetyDaysAgo = new Date()
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
-  const ninetyDayMinutesResult = await prisma.activity.aggregate({
-    where: { userId: session.id, status: 'APPROVED', startedAt: { gte: ninetyDaysAgo } },
-    _sum: { durationMinutes: true },
-  })
-  const ninetyDayMinutes = ninetyDayMinutesResult._sum.durationMinutes ?? 0
-
   const profile = user.playerProfile
-  const levelColors: Record<string, string> = {
-    BRONZE: 'bg-amber-600',
-    SILVER: 'bg-slate-400',
-    GOLD: 'bg-yellow-500',
-    ELITE: 'bg-purple-500',
-  }
-  const levelColor = levelColors[profile?.level ?? 'BRONZE'] ?? 'bg-amber-600'
+  const level = profile?.level ?? Level.BRONZE
+  const lifetimePoints = profile?.lifetimePoints ?? 0
+  const xp = xpPercent(level, lifetimePoints)
 
-  // Garrincha loyalty tier (90-day minutes based)
-  const TIERS = [
-    {
-      key: 'MEMBER',
-      level: 'BRONZE',
-      minMinutes: 0,
-      nextMinutes: 270,
-      color: 'from-amber-600 to-amber-700',
-      textColor: 'text-amber-400',
-      borderColor: 'border-amber-600/30',
-      bgColor: 'bg-amber-600/10',
-      benefits: ['Access to all Garrincha facilities', 'Earn points on every activity', 'Community feed access'],
-    },
-    {
-      key: 'RISING STAR',
-      level: 'SILVER',
-      minMinutes: 270,
-      nextMinutes: 630,
-      color: 'from-slate-400 to-slate-500',
-      textColor: 'text-slate-300',
-      borderColor: 'border-slate-500/30',
-      bgColor: 'bg-slate-500/10',
-      benefits: ['Priority booking (48h window)', '5% discount on all sessions', 'Access to Rising Star events'],
-    },
-    {
-      key: 'STAR',
-      level: 'GOLD',
-      minMinutes: 630,
-      nextMinutes: 1080,
-      color: 'from-yellow-500 to-yellow-600',
-      textColor: 'text-yellow-400',
-      borderColor: 'border-yellow-500/30',
-      bgColor: 'bg-yellow-500/10',
-      benefits: ['Priority booking (72h window)', '10% discount on all sessions', 'Exclusive merchandise offers', 'Star lounge access'],
-    },
-    {
-      key: 'ALL-STAR',
-      level: 'ELITE',
-      minMinutes: 1080,
-      nextMinutes: null,
-      color: 'from-purple-500 to-purple-600',
-      textColor: 'text-purple-400',
-      borderColor: 'border-purple-500/30',
-      bgColor: 'bg-purple-500/10',
-      benefits: ['VIP booking (7-day window)', '20% discount on all sessions', 'Free merchandise annually', 'Exclusive events & tournaments', 'Personal coach consultation'],
-    },
-  ] as const
+  // Win rate
+  const totalConfirmed = matchesForUser.length
+  const wonCount = matchesForUser.filter(m => {
+    const p = m.participants[0]
+    if (!m.winnerSide || !p) return false
+    return (m.winnerSide === 'HOME' && (p.role === 'HOME' || p.role === 'HOME_PARTNER')) ||
+           (m.winnerSide === 'AWAY' && (p.role === 'AWAY' || p.role === 'AWAY_PARTNER'))
+  }).length
+  const winRate = totalConfirmed > 0 ? Math.round((wonCount / totalConfirmed) * 100) : 0
 
-  type TierKey = typeof TIERS[number]['key']
-  const currentTierData = TIERS.slice().reverse().find((t) => ninetyDayMinutes >= t.minMinutes) ?? TIERS[0]
-  const nextTierData = TIERS.find((t) => t.minMinutes > (currentTierData.minMinutes ?? 0)) ?? null
-  const progressPct = nextTierData
-    ? Math.min(100, Math.round(((ninetyDayMinutes - currentTierData.minMinutes) / (nextTierData.minMinutes - currentTierData.minMinutes)) * 100))
+  // Loyalty tier
+  const ninetyDayMinutes = ninetyDayResult._sum.durationMinutes ?? 0
+  const currentTier = [...TIERS].reverse().find(t => ninetyDayMinutes >= t.minMinutes) ?? TIERS[0]
+  const nextTier = TIERS.find(t => t.minMinutes > currentTier.minMinutes) ?? null
+  const tierProgressPct = nextTier
+    ? Math.min(100, Math.round(((ninetyDayMinutes - currentTier.minMinutes) / (nextTier.minMinutes! - currentTier.minMinutes)) * 100))
     : 100
 
-  const initials = user.name
-    .split(' ')
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
-    .join('')
+  const nameInitials = initials(user.name)
 
   return (
-    <div className="space-y-6">
-      {/* Profile Header */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-6 items-start">
-            {/* Avatar */}
-            <div className="relative shrink-0">
-              <div className="h-20 w-20 rounded-2xl bg-slate-600 flex items-center justify-center text-2xl font-bold text-white">
-                {initials}
-              </div>
-              <span className={`absolute -bottom-1 -right-1 text-xs font-bold text-white px-2 py-0.5 rounded-full ${levelColor}`}>
-                {profile?.level ?? 'BRONZE'}
-              </span>
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <h1 className="text-xl font-bold text-white">{user.name}</h1>
-                  <p className="text-slate-400">@{user.nickname}</p>
-                  {user.center && (
-                    <p className="flex items-center gap-1 text-sm text-slate-400 mt-1">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {user.center.name}
-                      {user.center.city ? `, ${user.center.city}` : ''}
-                    </p>
-                  )}
-                  {profile?.favoriteSport && (
-                    <p className="text-sm text-slate-400">⚽ {profile.favoriteSport}</p>
-                  )}
-                </div>
-                <Link
-                  href="/app/settings"
-                  className="flex items-center gap-1.5 text-sm text-slate-300 border border-slate-600 rounded-lg px-3 py-1.5 hover:bg-slate-700 transition-colors"
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                  Edit Profile
-                </Link>
-              </div>
-
-              {/* Stats row */}
-              <div className="flex flex-wrap gap-6 mt-4">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-white">{profile?.totalPoints ?? 0}</p>
-                  <p className="text-xs text-slate-400">Points</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-white">{profile?.totalActivities ?? 0}</p>
-                  <p className="text-xs text-slate-400">Activities</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-white">{(profile?.totalDistance ?? 0).toFixed(1)}km</p>
-                  <p className="text-xs text-slate-400">Distance</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-white">{user._count.followers}</p>
-                  <p className="text-xs text-slate-400">Followers</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-white">{user._count.following}</p>
-                  <p className="text-xs text-slate-400">Following</p>
-                </div>
-              </div>
+    <div className="max-w-xl mx-auto space-y-lg">
+      {/* ── Hero ─────────────────────────────────────────────────── */}
+      <section className="flex flex-col items-center text-center space-y-md">
+        {/* Avatar */}
+        <div className="relative">
+          <div
+            className="w-32 h-32 rounded-full p-1 border-2 border-primary-fixed-dim"
+            style={{ boxShadow: '0 0 30px rgba(171,214,0,0.2)' }}
+          >
+            <div className="w-full h-full rounded-full bg-surface-container-highest flex items-center justify-center text-4xl font-bold text-white select-none">
+              {nameInitials}
             </div>
           </div>
+          {/* Level badge */}
+          <div className="absolute bottom-1 right-1 bg-primary-fixed-dim text-on-primary-fixed px-3 py-0.5 rounded-full text-label-caps border-2 border-surface-container-lowest flex items-center gap-1">
+            <div className="w-2 h-2 bg-on-primary-fixed rounded-full pulse-green" />
+            {LEVEL_LABEL[level]}
+          </div>
+        </div>
 
-          {/* Badges */}
-          {user.userBadges.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-slate-700">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1">
-                <Award className="h-3.5 w-3.5" /> Badges
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {user.userBadges.slice(0, 8).map((ub) => (
-                  <div
-                    key={ub.id}
-                    title={ub.badge.description}
-                    className="flex items-center gap-1.5 rounded-full bg-slate-700 border border-slate-600 px-3 py-1 text-xs text-slate-200"
-                  >
-                    🏅 {ub.badge.name}
-                  </div>
-                ))}
-                {user.userBadges.length > 8 && (
-                  <div className="rounded-full bg-slate-700 border border-slate-600 px-3 py-1 text-xs text-slate-400">
-                    +{user.userBadges.length - 8} more
-                  </div>
-                )}
-              </div>
+        {/* Name / bio */}
+        <div className="space-y-xs">
+          <h2 className="text-headline-lg text-on-surface">{user.name}</h2>
+          <p className="text-body-md text-on-surface-variant max-w-xs mx-auto">
+            {profile?.bio ?? `@${user.nickname} · ${user._count.followers} followers`}
+          </p>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-md w-full pt-md">
+          <Link
+            href="/app/settings"
+            className="flex-1 bg-primary-fixed-dim text-on-primary font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all text-center"
+          >
+            EDIT PROFILE
+          </Link>
+          <Link
+            href={`/app/profile`}
+            aria-label="Share profile"
+            className="flex items-center justify-center border-2 border-secondary-container text-secondary-container px-4 rounded-xl active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>share</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* ── Stats Bento ──────────────────────────────────────────── */}
+      <section className="grid grid-cols-2 gap-md">
+        {/* Win Rate — big card */}
+        <div className="glass-card rounded-xl p-md flex flex-col justify-between aspect-square">
+          <span className="text-label-caps text-on-surface-variant">Win Rate</span>
+          <div className="flex flex-col items-center justify-center flex-1">
+            <span className="text-stats-xl text-primary-fixed-dim">{winRate}%</span>
+            <div className="w-full bg-surface-container-highest h-1 rounded-full mt-sm overflow-hidden">
+              <div
+                className="bg-primary-fixed-dim h-full rounded-full transition-all"
+                style={{ width: `${winRate}%` }}
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <p className="text-label-caps text-on-surface-variant mt-xs">
+              {wonCount}W / {totalConfirmed - wonCount}L
+            </p>
+          </div>
+        </div>
 
-      {/* ── Loyalty Tier Card ──────────────────────────────────── */}
-      <div className={`rounded-2xl border ${currentTierData.borderColor} ${currentTierData.bgColor} p-6`}>
+        {/* Right column */}
+        <div className="flex flex-col gap-md">
+          <div className="glass-card rounded-xl p-md flex-1 flex flex-col justify-between">
+            <span className="text-label-caps text-on-surface-variant">Matches</span>
+            <span className="text-headline-md text-on-surface">{totalConfirmed}</span>
+          </div>
+          <div className="glass-card rounded-xl p-md flex-1 flex flex-col justify-between">
+            <span className="text-label-caps text-on-surface-variant">Elo Rating</span>
+            <div className="flex items-center gap-2">
+              <span
+                className="material-symbols-outlined text-primary-fixed-dim"
+                style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}
+              >
+                verified
+              </span>
+              <span className="text-headline-md text-on-surface">{profile?.eloRating ?? 1000}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── XP Progress ──────────────────────────────────────────── */}
+      <div className="glass-card rounded-xl p-md">
+        <div className="flex justify-between items-center mb-sm">
+          <span className="text-label-caps text-on-surface-variant">Level Progress</span>
+          <span className="text-label-caps text-primary-fixed">{xp}%</span>
+        </div>
+        <div className="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary-fixed-dim rounded-full transition-all"
+            style={{ width: `${xp}%` }}
+          />
+        </div>
+        <p className="text-label-caps text-on-surface-variant mt-xs">
+          {lifetimePoints.toLocaleString()} / {LEVEL_NEXT[level].toLocaleString()} lifetime pts
+        </p>
+      </div>
+
+      {/* ── Sports Played ────────────────────────────────────────── */}
+      {topSports.length > 0 && (
+        <section className="space-y-sm">
+          <div className="flex justify-between items-center px-xs">
+            <h3 className="text-label-caps text-on-surface-variant">Sports Played</h3>
+          </div>
+          <div className="flex gap-sm flex-wrap">
+            {topSports.map(({ type }) => (
+              <div
+                key={type}
+                className="bg-surface-container rounded-xl px-4 py-3 flex items-center gap-3 border border-outline-variant/30"
+              >
+                <span className="material-symbols-outlined text-primary-fixed-dim" style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}>
+                  {sportIcon(type)}
+                </span>
+                <span className="text-label-caps text-on-surface">{sportLabel(type)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Sport Ratings ────────────────────────────────────────── */}
+      {sportRatings.length > 0 && (
+        <section className="space-y-sm">
+          <h3 className="text-label-caps text-on-surface-variant px-xs">Sport Ratings</h3>
+          <div className="grid grid-cols-2 gap-sm">
+            {sportRatings.map(r => (
+              <div key={r.id} className="glass-card rounded-xl p-md">
+                <div className="flex items-center gap-2 mb-xs">
+                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>
+                    {sportIcon(r.sport)}
+                  </span>
+                  <span className="text-label-caps text-on-surface-variant">{sportLabel(r.sport)}</span>
+                </div>
+                <p className="text-headline-md text-on-surface">{r.rating}</p>
+                <p className="text-label-caps text-secondary">{sportEloLabel(r.rating)}</p>
+                <p className="text-label-caps text-on-surface-variant mt-xs">{r.wins}W / {r.losses}L</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Trophy Cabinet ───────────────────────────────────────── */}
+      <section className="space-y-sm">
+        <div className="flex justify-between items-center px-xs">
+          <h3 className="text-label-caps text-on-surface-variant">Trophy Cabinet</h3>
+          <Link href="/app/badges" className="text-label-caps text-primary-fixed hover:opacity-80">
+            View All
+          </Link>
+        </div>
+        {user.userBadges.length === 0 ? (
+          <div className="glass-card rounded-xl p-md py-8 text-center text-on-surface-variant text-label-caps">
+            Win matches to earn your first trophy!
+          </div>
+        ) : (
+          <div className="glass-card rounded-xl p-md overflow-x-auto scrollbar-none">
+            <div className="flex gap-lg min-w-max">
+              {user.userBadges.slice(0, 10).map(ub => (
+                <div key={ub.id} className="flex flex-col items-center gap-2 w-17.5">
+                  <div className="w-14 h-14 rounded-full border-2 border-primary-fixed-dim flex items-center justify-center bg-primary-container/10">
+                    <span
+                      className="material-symbols-outlined text-primary-fixed-dim"
+                      style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
+                    >
+                      military_tech
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-on-surface-variant text-center leading-tight uppercase">
+                    {ub.badge.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── Loyalty Tier ─────────────────────────────────────────── */}
+      <section className={`glass-card rounded-xl p-md border-l-4 ${currentTier.borderColor.replace('border-', 'border-l-')}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Loyalty Tier</p>
-            <p className={`text-3xl font-black ${currentTierData.textColor}`}>{currentTierData.key}</p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="text-label-caps text-on-surface-variant mb-xs">Loyalty Tier</p>
+            <p className={`text-headline-lg font-black ${currentTier.textColor}`}>{currentTier.key}</p>
+            <p className="text-label-caps text-on-surface-variant mt-xs">
               {ninetyDayMinutes.toLocaleString()} min · last 90 days
             </p>
           </div>
-          <div className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br ${currentTierData.color} text-3xl shadow-lg`}>
-            {currentTierData.key === 'MEMBER' && '⭐'}
-            {currentTierData.key === 'RISING STAR' && '🌟'}
-            {currentTierData.key === 'STAR' && '💫'}
-            {currentTierData.key === 'ALL-STAR' && '🏆'}
+          <div className={`flex h-14 w-14 items-center justify-center rounded-xl bg-linear-to-br ${currentTier.color} text-2xl shrink-0`}>
+            {currentTier.key === 'MEMBER' ? '⭐' : currentTier.key === 'RISING STAR' ? '🌟' : currentTier.key === 'STAR' ? '💫' : '🏆'}
           </div>
         </div>
 
-        {/* Progress bar */}
-        {nextTierData && (
-          <div className="mt-5">
-            <div className="flex items-center justify-between mb-1.5 text-xs text-slate-400">
-              <span>{ninetyDayMinutes} min</span>
-              <span>{nextTierData.minMinutes} min to {nextTierData.key}</span>
+        {nextTier && (
+          <div className="mt-md">
+            <div className="flex justify-between text-label-caps text-on-surface-variant mb-xs">
+              <span>{ninetyDayMinutes}m</span>
+              <span>{nextTier.minMinutes}m to {nextTier.key}</span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700">
+            <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full bg-linear-to-r ${currentTierData.color} transition-all`}
-                style={{ width: `${progressPct}%` }}
+                className={`h-full rounded-full bg-linear-to-r ${currentTier.color} transition-all`}
+                style={{ width: `${tierProgressPct}%` }}
               />
             </div>
-            <p className="mt-1.5 text-xs text-slate-500">
-              {Math.max(0, nextTierData.minMinutes - ninetyDayMinutes)} more minutes to unlock {nextTierData.key}
-            </p>
           </div>
         )}
 
-        {/* Tier benefits */}
-        <div className="mt-5 pt-5 border-t border-white/10">
-          <p className="text-xs font-semibold text-slate-400 mb-2">Your {currentTierData.key} Benefits</p>
-          <ul className="space-y-1.5">
-            {currentTierData.benefits.map((b) => (
-              <li key={b} className="flex items-start gap-2 text-sm text-slate-300">
-                <span className={`mt-0.5 text-xs ${currentTierData.textColor}`}>✓</span>
-                {b}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ul className="mt-md space-y-xs">
+          {currentTier.benefits.map(b => (
+            <li key={b} className="flex items-start gap-2 text-body-md text-on-surface-variant">
+              <span className={`text-label-caps mt-0.5 ${currentTier.textColor}`}>✓</span>
+              {b}
+            </li>
+          ))}
+        </ul>
+      </section>
 
-        {/* All tiers */}
-        <div className="mt-5 pt-5 border-t border-white/10">
-          <p className="text-xs font-semibold text-slate-400 mb-3">Tier Roadmap</p>
-          <div className="flex gap-2">
-            {TIERS.map((t) => {
-              const isActive = t.key === currentTierData.key
-              const isPast = t.minMinutes < currentTierData.minMinutes
-              return (
-                <div
-                  key={t.key}
-                  className={`flex-1 rounded-xl border px-2 py-2 text-center text-xs transition-all ${
-                    isActive
-                      ? `${t.borderColor} ${t.bgColor} ${t.textColor} font-bold`
-                      : isPast
-                      ? 'border-slate-700 text-green-500 font-medium'
-                      : 'border-slate-700 text-slate-600'
-                  }`}
-                >
-                  <p className="font-semibold leading-tight">{t.key === 'RISING STAR' ? 'RISING' : t.key === 'ALL-STAR' ? 'ALL-★' : t.key}</p>
-                  <p className="mt-0.5 text-[10px] opacity-70">{t.minMinutes}m</p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Connected Apps */}
+      {/* ── Connected Apps ───────────────────────────────────────── */}
       <StravaSection
         stravaAccountId={stravaAccount?.id ?? null}
-        athleteName={
-          strava === 'connected' && athleteName
-            ? decodeURIComponent(athleteName)
-            : null
-        }
+        athleteName={strava === 'connected' && athleteName ? decodeURIComponent(athleteName) : null}
         justConnected={strava === 'connected'}
         connectError={queryError ? decodeURIComponent(queryError) : null}
       />
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Recent Activities */}
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-white text-base flex items-center gap-2">
-              <Activity className="h-4 w-4" /> Recent Activities
-            </CardTitle>
-            <Link href="/app/activities" className="text-xs text-green-400 hover:text-green-300">View all →</Link>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentActivities.length === 0 ? (
-              <p className="text-slate-400 text-sm text-center py-6">No activities yet.</p>
-            ) : (
-              recentActivities.map((a) => <ActivityCard key={a.id} activity={a} compact />)
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Points History */}
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-white text-base flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Points History
-            </CardTitle>
-            <Link href="/app/wallet" className="text-xs text-green-400 hover:text-green-300">Full history →</Link>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {pointsHistory.length === 0 ? (
-                <p className="text-slate-400 text-sm text-center py-6">No points history yet.</p>
-              ) : (
-                pointsHistory.map((entry) => (
-                  <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-slate-700 last:border-0">
-                    <div>
-                      <p className="text-sm text-slate-200">{entry.reason}</p>
-                      <p className="text-xs text-slate-500">{formatDate(entry.createdAt)}</p>
-                    </div>
-                    <span className={`text-sm font-semibold ${entry.points >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {entry.points >= 0 ? '+' : ''}{entry.points}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   )
 }
