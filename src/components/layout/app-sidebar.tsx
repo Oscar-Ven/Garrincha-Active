@@ -46,6 +46,7 @@ const navItems = [
   { label: 'Feed', href: '/app/feed', icon: Rss },
   { label: 'Explore', href: '/app/explore', icon: Compass },
   { label: 'Matches & Sessions', href: '/app/activities', icon: Activity },
+  { label: 'Matches', href: '/app/matches', icon: Swords },
   { label: 'Training', href: '/app/training', icon: TrendingUp },
   { label: 'Wellness', href: '/app/wellness', icon: Heart },
   { label: 'Challenges', href: '/app/challenges', icon: Trophy },

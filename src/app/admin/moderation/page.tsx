@@ -221,6 +221,7 @@ function PostTypeBadge({ type }: { type: FeedPostType }) {
     TEAM_JOIN: 'Team',
     PERSONAL_RECORD: 'Personal Record',
     CUSTOM: 'Custom',
+    MATCH_RESULT: 'Match',
   }
 
   const colors: Record<FeedPostType, string> = {
@@ -232,6 +233,7 @@ function PostTypeBadge({ type }: { type: FeedPostType }) {
     TEAM_JOIN: 'bg-cyan-900/40 text-cyan-300 ring-cyan-700/30',
     PERSONAL_RECORD: 'bg-yellow-900/40 text-yellow-300 ring-yellow-700/30',
     CUSTOM: 'bg-slate-700/60 text-slate-300 ring-slate-600/30',
+    MATCH_RESULT: 'bg-green-900/40 text-green-300 ring-green-700/30',
   }
 
   return (

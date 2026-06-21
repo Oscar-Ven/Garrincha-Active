@@ -102,6 +102,7 @@ const POST_TYPE_META: Record<FeedPostType, { label: string; icon: React.ElementT
   TEAM_JOIN: { label: 'Team', icon: Users, badgeVariant: 'secondary' },
   PERSONAL_RECORD: { label: 'Personal Record', icon: Trophy, badgeVariant: 'gold' },
   CUSTOM: { label: 'Post', icon: Zap, badgeVariant: 'outline' },
+  MATCH_RESULT: { label: 'Match', icon: Trophy, badgeVariant: 'default' },
 }
 
 function getInitials(name: string): string {

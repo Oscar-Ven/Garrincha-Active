@@ -57,6 +57,7 @@ enum PointsSourceType {
   CUSTOM
   VENUE_CHECK_IN
   SESSION_ATTENDANCE
+  MATCH
 }
 
 enum RewardCategory {
@@ -113,6 +114,35 @@ enum FeedPostType {
   TEAM_JOIN
   PERSONAL_RECORD
   CUSTOM
+  MATCH_RESULT
+}
+
+enum MatchFormat {
+  SINGLES
+  DOUBLES
+}
+
+enum MatchStatus {
+  PENDING
+  CONFIRMED
+  DISPUTED
+  CANCELLED
+}
+
+enum MatchParticipantRole {
+  HOME
+  AWAY
+  HOME_PARTNER
+  AWAY_PARTNER
+}
+
+enum MatchSurface {
+  CLAY
+  HARD
+  GRASS
+  CARPET
+  INDOOR
+  UNKNOWN
 }
 
 enum ModerationStatus {
@@ -154,6 +184,9 @@ enum NotificationType {
   WAITLIST_PROMOTED
   REFERRAL_REWARD
   TEAM_MESSAGE
+  MATCH_CONFIRMATION_REQUEST
+  MATCH_CONFIRMED
+  MATCH_DISPUTED
 }
 
 enum GearType {
@@ -299,6 +332,8 @@ model User {
   tournamentMatchesHome    TournamentMatch[]  @relation("TournamentHome")
   tournamentMatchesAway    TournamentMatch[]  @relation("TournamentAway")
   tournamentMatchesWon     TournamentMatch[]  @relation("TournamentWinner")
+  matchParticipations      MatchParticipant[] @relation("UserMatchParticipations")
+  sportRatings             PlayerSportRating[] @relation("UserSportRatings")
 
   @@map("users")
 }
@@ -325,6 +360,9 @@ model PlayerProfile {
   trainingLoadScore Float?
   skillLevel        SkillLevel?
   eloRating         Int       @default(1000)
+  primarySport      ActivityType?
+  dominantHand      String?   // LEFT | RIGHT | AMBIDEXTROUS
+  preferredSide     String?   // AD | DEUCE | BOTH (for padel/doubles)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -721,6 +759,8 @@ model FeedPost {
   eventRegistration      EventRegistration? @relation(fields: [eventRegistrationId], references: [id])
   personalRecordId       String?            @unique
   personalRecord         PersonalRecord?    @relation(fields: [personalRecordId], references: [id])
+  matchResultId          String?            @unique
+  matchResult            MatchResult?       @relation(fields: [matchResultId], references: [id])
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
@@ -1391,10 +1431,12 @@ model Court {
   center      Center         @relation(fields: [centerId], references: [id])
   name        String
   sport       String?
+  surface     MatchSurface?
   description String?
   isActive    Boolean        @default(true)
   createdAt   DateTime       @default(now())
   bookings    CourtBooking[]
+  matchResults MatchResult[]
 
   @@map("courts")
 }
@@ -1476,4 +1518,80 @@ model TournamentMatch {
 
   @@unique([eventId, round, matchIndex])
   @@map("tournament_matches")
+}
+
+// ─── Racket-Sport Match Results ───────────────────────────────────────────────
+
+model MatchResult {
+  id            String       @id @default(cuid())
+  sport         ActivityType
+  format        MatchFormat  @default(SINGLES)
+  surface       MatchSurface @default(UNKNOWN)
+  courtId       String?
+  court         Court?       @relation(fields: [courtId], references: [id])
+  status        MatchStatus  @default(PENDING)
+  winnerSide    String?      // "HOME" | "AWAY"
+  homeSetWins   Int          @default(0)
+  awaySetWins   Int          @default(0)
+  notes         String?
+  pointsAwarded Boolean      @default(false)
+  feedPublished Boolean      @default(false)
+  playedAt      DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  sets          MatchSet[]
+  participants  MatchParticipant[]
+  feedPost      FeedPost?
+
+  @@index([sport, status])
+  @@index([status, playedAt])
+  @@map("match_results")
+}
+
+model MatchSet {
+  id           String      @id @default(cuid())
+  matchId      String
+  match        MatchResult @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  setNumber    Int
+  homeGames    Int
+  awayGames    Int
+  homeTiebreak Int?
+  awayTiebreak Int?
+
+  @@unique([matchId, setNumber])
+  @@map("match_sets")
+}
+
+model MatchParticipant {
+  id          String               @id @default(cuid())
+  matchId     String
+  match       MatchResult          @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                 @relation("UserMatchParticipations", fields: [userId], references: [id], onDelete: Cascade)
+  role        MatchParticipantRole
+  confirmed   Boolean              @default(false)
+  confirmedAt DateTime?
+  disputed    Boolean              @default(false)
+  disputedAt  DateTime?
+  disputeNote String?
+  createdAt   DateTime             @default(now())
+
+  @@unique([matchId, userId])
+  @@map("match_participants")
+}
+
+model PlayerSportRating {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation("UserSportRatings", fields: [userId], references: [id], onDelete: Cascade)
+  sport     ActivityType
+  rating    Int          @default(1000)
+  wins      Int          @default(0)
+  losses    Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([userId, sport])
+  @@map("player_sport_ratings")
 }

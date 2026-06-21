@@ -7,6 +7,9 @@ import { ActivityType } from '@/generated/prisma'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UserCheck, UserPlus, MapPin, MessageSquare, Flame, Leaf, Trophy } from 'lucide-react'
+import { getSportRatings } from '@/services/matches'
+import { sportEloLabel } from '@/lib/match-elo'
+import { activityTypeLabel, activityTypeIcon } from '@/lib/utils'
 
 async function startConversation(currentUserId: string, otherId: string): Promise<void> {
   'use server'
@@ -41,7 +44,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
   const currentUser = await getCurrentUser()
   if (!currentUser) redirect('/login')
 
-  const [player, isFollowing] = await Promise.all([
+  const [player, isFollowing, sportRatings] = await Promise.all([
     prisma.user.findFirst({
       where: { id, role: 'PLAYER' },
       include: {
@@ -68,6 +71,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
     prisma.follow.findUnique({
       where: { followerId_followingId: { followerId: currentUser.id, followingId: id } },
     }),
+    getSportRatings(id),
   ])
 
   if (!player || !player.playerProfile) notFound()
@@ -203,6 +207,30 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
                   className="flex items-center gap-1.5 rounded-full border border-yellow-700/40 bg-yellow-900/20 px-3 py-1 text-xs font-medium text-yellow-300"
                 >
                   🏅 {ub.badge.name}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sport Ratings */}
+      {sportRatings.length > 0 && (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-white text-base">Sport Ratings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {sportRatings.map((r) => (
+                <div key={r.id} className="rounded-lg bg-slate-700/40 p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-sm">{activityTypeIcon(r.sport as never)}</span>
+                    <span className="text-xs text-slate-400 font-medium">{activityTypeLabel(r.sport as never)}</span>
+                  </div>
+                  <p className="text-white font-bold text-xl">{r.rating}</p>
+                  <p className="text-xs text-slate-400">{sportEloLabel(r.rating)}</p>
+                  <p className="text-xs text-slate-500 mt-1">{r.wins}W / {r.losses}L</p>
                 </div>
               ))}
             </div>

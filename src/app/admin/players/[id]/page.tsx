@@ -365,6 +365,7 @@ function sourceTypeLabel(type: PointsSourceType): string {
     CUSTOM: 'Custom',
     VENUE_CHECK_IN: 'Venue Check-in',
     SESSION_ATTENDANCE: 'Session Attendance',
+    MATCH: 'Match',
   }
   return labels[type] ?? type
 }
