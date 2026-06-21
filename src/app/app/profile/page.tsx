@@ -167,7 +167,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         <div className="flex gap-md w-full pt-md">
           <Link
             href="/app/settings"
-            className="flex-1 bg-primary-fixed-dim text-on-primary font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all text-center"
+            className="flex-1 bg-primary-fixed-dim text-on-primary-fixed font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all text-center"
           >
             EDIT PROFILE
           </Link>
@@ -299,7 +299,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             <div className="flex gap-lg min-w-max">
               {user.userBadges.slice(0, 10).map(ub => (
                 <div key={ub.id} className="flex flex-col items-center gap-2 w-17.5">
-                  <div className="w-14 h-14 rounded-full border-2 border-primary-fixed-dim flex items-center justify-center bg-primary-container/10">
+                  <div className="w-14 h-14 rounded-full border-2 border-primary-fixed-dim flex items-center justify-center bg-primary-fixed/10">
                     <span
                       className="material-symbols-outlined text-primary-fixed-dim"
                       style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
@@ -327,8 +327,10 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               {ninetyDayMinutes.toLocaleString()} min · last 90 days
             </p>
           </div>
-          <div className={`flex h-14 w-14 items-center justify-center rounded-xl bg-linear-to-br ${currentTier.color} text-2xl shrink-0`}>
-            {currentTier.key === 'MEMBER' ? '⭐' : currentTier.key === 'RISING STAR' ? '🌟' : currentTier.key === 'STAR' ? '💫' : '🏆'}
+          <div className={`flex h-14 w-14 items-center justify-center rounded-xl bg-linear-to-br ${currentTier.color} shrink-0`}>
+            <span className="material-symbols-outlined text-white" style={{ fontSize: '24px', fontVariationSettings: "'FILL' 1" }}>
+              {currentTier.key === 'MEMBER' ? 'grade' : currentTier.key === 'RISING STAR' ? 'auto_awesome' : currentTier.key === 'STAR' ? 'star' : 'emoji_events'}
+            </span>
           </div>
         </div>
 
@@ -350,7 +352,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         <ul className="mt-md space-y-xs">
           {currentTier.benefits.map(b => (
             <li key={b} className="flex items-start gap-2 text-body-md text-on-surface-variant">
-              <span className={`text-label-caps mt-0.5 ${currentTier.textColor}`}>✓</span>
+              <span className={`material-symbols-outlined mt-0.5 ${currentTier.textColor}`} style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>check</span>
               {b}
             </li>
           ))}
