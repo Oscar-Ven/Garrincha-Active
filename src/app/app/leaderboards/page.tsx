@@ -1,13 +1,12 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { getFriendsLeaderboard } from '@/services/leaderboard'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LeaderboardRow } from '@/components/player/leaderboard-row'
-import { BarChart3, Shield, Users } from 'lucide-react'
-import Link from 'next/link'
+import { cn } from '@/lib/utils'
 
-export const metadata = { title: 'Leaderboards' }
+export const metadata = { title: 'Leaderboards | GG' }
 
 async function getGlobalLeaderboard(metric: 'points' | 'distance' | 'minutes', limit = 50) {
   const sortField = metric === 'points' ? 'totalPoints' : metric === 'distance' ? 'totalDistance' : 'totalMinutes'
@@ -34,6 +33,19 @@ async function getGlobalLeaderboard(metric: 'points' | 'distance' | 'minutes', l
   }))
 }
 
+const FILTER_TABS = [
+  { key: 'global', label: 'Global' },
+  { key: 'weekly', label: 'Weekly' },
+  { key: 'monthly', label: 'Monthly' },
+  { key: 'friends', label: 'Friends' },
+]
+
+const METRIC_TABS = [
+  { key: 'points', label: 'Points', icon: 'stars' },
+  { key: 'distance', label: 'Distance', icon: 'route' },
+  { key: 'minutes', label: 'Time', icon: 'schedule' },
+]
+
 export default async function LeaderboardsPage({
   searchParams,
 }: {
@@ -45,7 +57,7 @@ export default async function LeaderboardsPage({
   const { filter = 'global', metric = 'points' } = await searchParams
   const safeMetric = (metric === 'distance' || metric === 'minutes') ? metric : 'points'
   const safeFilter = (['global', 'weekly', 'monthly', 'friends'] as const).includes(
-    filter as 'global' | 'weekly' | 'monthly' | 'friends'
+    filter as 'global' | 'weekly' | 'monthly' | 'friends',
   )
     ? (filter as 'global' | 'weekly' | 'monthly' | 'friends')
     : 'global'
@@ -60,107 +72,115 @@ export default async function LeaderboardsPage({
   const activeEntries = isFriends ? friendsEntries : entries
   const userRank = activeEntries.findIndex((e) => e.userId === session.id) + 1
 
-  const filterTabs = ['global', 'weekly', 'monthly', 'friends']
-  const metricTabs = ['points', 'distance', 'minutes']
-
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-        <BarChart3 className="h-6 w-6 text-yellow-400" /> Leaderboards
-      </h1>
+    <div className="max-w-2xl mx-auto space-y-lg">
+      {/* Header */}
+      <div>
+        <h1 className="text-headline-md font-black italic tracking-tight text-primary-fixed">
+          Rankings
+        </h1>
+        <p className="text-label-caps text-on-surface-variant mt-xs">{activeEntries.length} players</p>
+      </div>
 
-      {/* Center League shortcut */}
+      {/* Centre League shortcut */}
       <Link
         href="/app/leaderboards/centers"
-        className="flex items-center justify-between rounded-xl border border-purple-700/40 bg-purple-900/20 px-5 py-3 hover:bg-purple-900/40 transition-colors group"
+        className="glass-card rounded-xl p-md flex items-center justify-between hover:bg-surface-container-high transition-colors active:scale-[0.99]"
       >
-        <div className="flex items-center gap-3">
-          <Shield className="h-5 w-5 text-purple-400" />
+        <div className="flex items-center gap-md">
+          <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-secondary" style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}>
+              shield
+            </span>
+          </div>
           <div>
-            <p className="text-sm font-semibold text-white">Center League Table</p>
-            <p className="text-xs text-slate-400">Football-style ranking of all training centers</p>
+            <p className="text-body-md font-bold text-white">Centre League Table</p>
+            <p className="text-label-caps text-on-surface-variant">Football-style ranking of all centres</p>
           </div>
         </div>
-        <span className="text-slate-400 group-hover:text-white transition-colors text-sm">View →</span>
+        <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '20px' }}>chevron_right</span>
       </Link>
 
-      {/* Tabs */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex gap-1 rounded-lg bg-slate-800 p-1">
-          {filterTabs.map((f) => (
-            <Link
-              key={f}
-              href={`?filter=${f}&metric=${safeMetric}`}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                safeFilter === f ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {f === 'friends' && <Users className="h-3.5 w-3.5" />}
-              {f}
-            </Link>
-          ))}
-        </div>
-        <div className="flex gap-1 rounded-lg bg-slate-800 p-1">
-          {metricTabs.map((m) => (
-            <Link
-              key={m}
-              href={`?filter=${filter}&metric=${m}`}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                safeMetric === m ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {m}
-            </Link>
-          ))}
-        </div>
+      {/* Filter tabs */}
+      <div className="flex gap-xs glass-card rounded-xl p-xs">
+        {FILTER_TABS.map((tab) => (
+          <Link
+            key={tab.key}
+            href={`?filter=${tab.key}&metric=${safeMetric}`}
+            className={cn(
+              'flex-1 rounded-lg px-sm py-xs text-label-caps text-center transition-colors',
+              safeFilter === tab.key
+                ? 'bg-primary-fixed text-on-primary-fixed'
+                : 'text-on-surface-variant hover:text-on-surface',
+            )}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
+
+      {/* Metric tabs */}
+      <div className="flex gap-xs glass-card rounded-xl p-xs">
+        {METRIC_TABS.map((tab) => (
+          <Link
+            key={tab.key}
+            href={`?filter=${safeFilter}&metric=${tab.key}`}
+            className={cn(
+              'flex-1 rounded-lg px-sm py-xs text-label-caps text-center transition-colors flex items-center justify-center gap-1',
+              safeMetric === tab.key
+                ? 'bg-secondary/20 text-secondary'
+                : 'text-on-surface-variant hover:text-on-surface',
+            )}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: safeMetric === tab.key ? "'FILL' 1" : "'FILL' 0" }}>
+              {tab.icon}
+            </span>
+            {tab.label}
+          </Link>
+        ))}
       </div>
 
       {/* User rank highlight */}
       {userRank > 0 && (
-        <div className="rounded-lg bg-green-900/30 border border-green-700/50 px-4 py-2 text-sm text-green-300">
-          Your rank: <span className="font-bold">#{userRank}</span>{' '}
-          {isFriends ? 'among friends' : 'globally'} by {safeMetric}
-        </div>
-      )}
-
-      {isFriends && friendsEntries.length === 0 && (
-        <div className="rounded-lg bg-slate-800 border border-slate-700 px-4 py-6 text-center">
-          <Users className="h-8 w-8 text-slate-500 mx-auto mb-2" />
-          <p className="text-slate-400 text-sm">
-            You aren&apos;t following anyone yet.{' '}
-            <a href="/app/explore" className="text-green-400 underline">
-              Explore players
-            </a>{' '}
-            to find people to follow.
+        <div className="glass-card rounded-xl p-sm border-l-4 border-l-primary-fixed flex items-center gap-sm">
+          <span className="material-symbols-outlined text-primary-fixed" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>
+            emoji_events
+          </span>
+          <p className="text-label-caps text-on-surface">
+            You&apos;re ranked <span className="text-primary-fixed font-black">#{userRank}</span>{' '}
+            {isFriends ? 'among friends' : 'globally'} by {safeMetric}
           </p>
         </div>
       )}
 
-      {/* Table */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white text-base capitalize">
-            {isFriends ? 'Friends' : safeFilter} · By {safeMetric}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y divide-slate-700">
-            {activeEntries.length === 0 ? (
-              <p className="text-slate-400 text-sm text-center py-8">No players yet.</p>
-            ) : (
-              activeEntries.map((entry) => (
-                <LeaderboardRow
-                  key={entry.userId}
-                  entry={entry}
-                  rank={entry.rank}
-                  isCurrentUser={entry.userId === session.id}
-                  metric={safeMetric}
-                />
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Friends empty state */}
+      {isFriends && friendsEntries.length === 0 && (
+        <div className="glass-card rounded-xl p-md py-10 flex flex-col items-center text-center">
+          <span className="material-symbols-outlined text-on-surface-variant mb-sm" style={{ fontSize: '40px' }}>group</span>
+          <p className="text-body-md text-on-surface-variant">You aren&apos;t following anyone yet.</p>
+          <Link href="/app/explore" className="text-label-caps text-primary-fixed mt-sm hover:opacity-80">
+            Explore players →
+          </Link>
+        </div>
+      )}
+
+      {/* Rankings list */}
+      {activeEntries.length > 0 && (
+        <div className="glass-card rounded-xl p-sm space-y-xs">
+          <p className="text-label-caps text-on-surface-variant px-sm pb-xs">
+            {isFriends ? 'Friends' : safeFilter.charAt(0).toUpperCase() + safeFilter.slice(1)} · By {safeMetric}
+          </p>
+          {activeEntries.map((entry) => (
+            <LeaderboardRow
+              key={entry.userId}
+              entry={entry}
+              rank={entry.rank}
+              isCurrentUser={entry.userId === session.id}
+              metric={safeMetric}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

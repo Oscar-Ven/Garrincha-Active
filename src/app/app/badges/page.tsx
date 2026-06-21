@@ -5,23 +5,23 @@ import { getAllBadges, getUserBadges } from '@/services/badges'
 import { formatDate } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Badges | Garrincha Active',
+  title: 'Achievements | GG',
   description: 'Your earned badges and achievements',
 }
 
-const BADGE_ICONS: Record<string, string> = {
-  first_activity:     '⚡',
-  '5k_runner':        '🏃',
-  '10k_runner':       '🏅',
-  football_starter:   '⚽',
-  match_player:       '🥅',
-  weekly_streak:      '🔥',
-  challenge_finisher: '🏆',
-  center_champion:    '👑',
-  reward_redeemer:    '🎁',
-  segment_star:       '⭐',
-  personal_record:    '💎',
-  road_warrior:       '🚴',
+const BADGE_ICON_MAP: Record<string, string> = {
+  first_activity:     'bolt',
+  '5k_runner':        'directions_run',
+  '10k_runner':       'directions_run',
+  football_starter:   'sports_soccer',
+  match_player:       'sports_kabaddi',
+  weekly_streak:      'local_fire_department',
+  challenge_finisher: 'emoji_events',
+  center_champion:    'shield',
+  reward_redeemer:    'redeem',
+  segment_star:       'star',
+  personal_record:    'diamond',
+  road_warrior:       'directions_bike',
 }
 
 export default async function BadgesPage() {
@@ -35,62 +35,81 @@ export default async function BadgesPage() {
 
   const earnedMap = new Map(earned.map((ub) => [ub.badgeId, ub.awardedAt]))
   const earnedCount = earned.length
+  const totalCount = allBadges.length
+  const pct = totalCount > 0 ? Math.round((earnedCount / totalCount) * 100) : 0
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-6 sm:px-6">
-
+    <div className="max-w-xl mx-auto space-y-lg">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Badges</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {earnedCount} / {allBadges.length} earned
+          <h1 className="text-headline-md font-black italic tracking-tight text-primary-fixed">Achievements</h1>
+          <p className="text-label-caps text-on-surface-variant mt-xs">
+            {earnedCount} / {totalCount} unlocked
           </p>
         </div>
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-yellow-500/20 text-3xl">
-          🏆
+        <div className="w-12 h-12 rounded-xl bg-primary-fixed/10 flex items-center justify-center">
+          <span className="material-symbols-outlined text-primary-fixed" style={{ fontSize: '24px', fontVariationSettings: "'FILL' 1" }}>
+            military_tech
+          </span>
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs text-slate-400">
-          <span>Collection progress</span>
-          <span className="font-semibold text-yellow-400">{allBadges.length > 0 ? Math.round((earnedCount / allBadges.length) * 100) : 0}%</span>
+      {/* Collection progress */}
+      <div className="glass-card rounded-xl p-md space-y-sm">
+        <div className="flex justify-between">
+          <span className="text-label-caps text-on-surface-variant">Collection progress</span>
+          <span className="text-label-caps font-black text-primary-fixed">{pct}%</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-highest">
           <div
-            className="h-full rounded-full bg-yellow-500 transition-all duration-700"
-            style={{ width: `${allBadges.length > 0 ? (earnedCount / allBadges.length) * 100 : 0}%` }}
+            className="h-full rounded-full bg-primary-fixed transition-all duration-700"
+            style={{ width: `${pct}%` }}
           />
+        </div>
+        <div className="flex justify-between">
+          <span className="text-label-caps text-on-surface-variant">{earnedCount} earned</span>
+          <span className="text-label-caps text-on-surface-variant">{totalCount - earnedCount} locked</span>
         </div>
       </div>
 
       {/* Earned */}
       {earnedCount > 0 && (
-        <section>
-          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Earned ({earnedCount})
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+        <section className="space-y-sm">
+          <h2 className="text-label-caps text-on-surface-variant">Earned ({earnedCount})</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
             {allBadges.filter((b) => earnedMap.has(b.id)).map((badge) => {
               const awardedAt = earnedMap.get(badge.id)!
               return (
                 <div
                   key={badge.id}
-                  className="flex items-center gap-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4"
+                  className="glass-card rounded-xl p-md flex items-center gap-md border-l-4 border-l-primary-fixed"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-yellow-500/20 text-3xl">
-                    {badge.iconUrl
-                      ? <img src={badge.iconUrl} alt={badge.name} className="h-10 w-10 object-contain" />
-                      : (BADGE_ICONS[badge.key] ?? '🎖️')}
+                  <div className="w-14 h-14 shrink-0 rounded-xl border-2 border-primary-fixed-dim bg-primary-fixed/10 flex items-center justify-center">
+                    {badge.iconUrl ? (
+                      <img src={badge.iconUrl} alt={badge.name} className="w-9 h-9 object-contain" />
+                    ) : (
+                      <span
+                        className="material-symbols-outlined text-primary-fixed"
+                        style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
+                      >
+                        {BADGE_ICON_MAP[badge.key] ?? 'military_tech'}
+                      </span>
+                    )}
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-yellow-300">{badge.name}</p>
-                    <p className="mt-0.5 text-xs text-slate-400">{badge.description}</p>
-                    <p className="mt-1 text-xs text-yellow-500/70">Earned {formatDate(awardedAt)}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-body-md font-bold text-primary-fixed truncate">{badge.name}</p>
+                    <p className="text-label-caps text-on-surface-variant mt-xs">{badge.description}</p>
+                    <p className="text-label-caps text-primary-fixed-dim mt-xs">
+                      Earned {formatDate(awardedAt)}
+                    </p>
                   </div>
-                  <span className="ml-auto shrink-0 text-yellow-400">✓</span>
+                  <span
+                    className="material-symbols-outlined text-primary-fixed shrink-0"
+                    style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}
+                  >
+                    check_circle
+                  </span>
                 </div>
               )
             })}
@@ -100,38 +119,48 @@ export default async function BadgesPage() {
 
       {/* Locked */}
       {allBadges.some((b) => !earnedMap.has(b.id)) && (
-        <section>
-          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+        <section className="space-y-sm">
+          <h2 className="text-label-caps text-on-surface-variant">
             Locked ({allBadges.filter((b) => !earnedMap.has(b.id)).length})
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
             {allBadges.filter((b) => !earnedMap.has(b.id)).map((badge) => (
               <div
                 key={badge.id}
-                className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/60 p-4 opacity-60"
+                className="glass-card rounded-xl p-md flex items-center gap-md opacity-50"
               >
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-700 text-3xl grayscale">
-                  {BADGE_ICONS[badge.key] ?? '🎖️'}
+                <div className="w-14 h-14 shrink-0 rounded-xl border-2 border-white/10 bg-surface-container-high flex items-center justify-center grayscale">
+                  <span
+                    className="material-symbols-outlined text-on-surface-variant"
+                    style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
+                  >
+                    {BADGE_ICON_MAP[badge.key] ?? 'military_tech'}
+                  </span>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-300">{badge.name}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">{badge.description}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-body-md font-bold text-on-surface truncate">{badge.name}</p>
+                  <p className="text-label-caps text-on-surface-variant mt-xs">{badge.description}</p>
                 </div>
-                <span className="ml-auto shrink-0 text-slate-600">🔒</span>
+                <span
+                  className="material-symbols-outlined text-on-surface-variant shrink-0"
+                  style={{ fontSize: '20px' }}
+                >
+                  lock
+                </span>
               </div>
             ))}
           </div>
         </section>
       )}
 
+      {/* No badges configured */}
       {allBadges.length === 0 && (
-        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-800/40 px-6 py-16 text-center">
-          <div className="mb-3 text-4xl">🏆</div>
-          <p className="font-semibold text-slate-200">No badges configured yet</p>
-          <p className="mt-1 text-sm text-slate-500">Badges are set up by the platform admin.</p>
+        <div className="glass-card rounded-xl p-md py-12 flex flex-col items-center text-center border border-dashed border-white/10">
+          <span className="material-symbols-outlined text-on-surface-variant mb-sm" style={{ fontSize: '40px' }}>military_tech</span>
+          <p className="text-body-md font-bold text-on-surface">No badges configured yet</p>
+          <p className="text-label-caps text-on-surface-variant mt-xs">Badges are set up by the platform admin.</p>
         </div>
       )}
-
     </div>
   )
 }
