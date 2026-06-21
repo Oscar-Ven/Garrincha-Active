@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Button } from '@/components/ui/button'
 import { confirmMatchAction, disputeMatchAction } from './actions'
 
 interface Props {
@@ -19,8 +18,14 @@ export function MatchConfirmPanel({ matchId, canConfirm, canDispute }: Props) {
 
   if (done) {
     return (
-      <div className="rounded-xl border border-green-700/50 bg-green-900/20 p-4 text-center text-green-300 text-sm">
-        Action submitted successfully.
+      <div className="glass-card rounded-xl p-md text-center space-y-xs">
+        <span
+          className="material-symbols-outlined block text-primary-fixed"
+          style={{ fontSize: '32px', fontVariationSettings: "'FILL' 1" }}
+        >
+          check_circle
+        </span>
+        <p className="text-label-caps text-primary-fixed">Action submitted successfully.</p>
       </div>
     )
   }
@@ -44,60 +49,67 @@ export function MatchConfirmPanel({ matchId, canConfirm, canDispute }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-sm">
       {error && (
-        <p className="text-red-400 text-sm bg-red-900/20 border border-red-700/50 rounded-lg px-3 py-2">{error}</p>
+        <div className="glass-card rounded-xl p-sm border-l-4 border-l-error text-error text-body-md">
+          {error}
+        </div>
       )}
 
       {!showDispute ? (
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-sm">
           {canConfirm && (
-            <Button
+            <button
               onClick={handleConfirm}
               disabled={isPending}
-              className="flex-1 bg-green-600 hover:bg-green-500 text-white font-semibold"
+              className="w-full bg-primary-fixed text-on-primary-fixed py-4 rounded-xl font-bold text-label-caps action-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-sm disabled:opacity-60 disabled:pointer-events-none"
             >
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}
+              >
+                check_circle
+              </span>
               {isPending ? 'Confirming…' : 'Confirm Result'}
-            </Button>
+            </button>
           )}
           {canDispute && (
-            <Button
+            <button
               onClick={() => setShowDispute(true)}
               disabled={isPending}
-              variant="outline"
-              className="flex-1 border-red-700/50 text-red-400 hover:bg-red-900/20"
+              className="border-2 border-error text-error py-3 rounded-xl font-bold text-label-caps hover:bg-error/10 active:scale-95 transition-all flex items-center justify-center gap-xs disabled:opacity-60 disabled:pointer-events-none"
             >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>flag</span>
               Dispute
-            </Button>
+            </button>
           )}
         </div>
       ) : (
-        <div className="space-y-3 rounded-xl border border-red-700/30 bg-red-900/10 p-4">
-          <p className="text-red-300 text-sm font-medium">Dispute this match result</p>
+        <div className="space-y-sm glass-card rounded-xl p-md border border-error/20">
+          <p className="text-label-caps text-error">Dispute this match result</p>
           <textarea
             value={disputeNote}
             onChange={(e) => setDisputeNote(e.target.value)}
-            placeholder="What's incorrect? (optional)"
+            placeholder="What&apos;s incorrect? (optional)"
             maxLength={500}
             rows={3}
-            className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-red-500 resize-none"
+            className="glass-card rounded-xl p-md w-full text-on-surface text-body-md bg-transparent border-none outline-none focus:ring-1 focus:ring-error resize-none placeholder:text-on-surface-variant"
           />
-          <div className="flex gap-3">
-            <Button
+          <div className="flex gap-sm">
+            <button
               onClick={handleDispute}
               disabled={isPending}
-              className="flex-1 bg-red-700 hover:bg-red-600 text-white font-semibold"
+              className="flex-1 bg-primary-fixed text-on-primary-fixed py-3 rounded-xl font-bold text-label-caps action-glow hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-xs disabled:opacity-60 disabled:pointer-events-none"
             >
               {isPending ? 'Submitting…' : 'Submit Dispute'}
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={() => setShowDispute(false)}
               disabled={isPending}
-              variant="outline"
-              className="border-white/20 text-white/60"
+              className="glass-card px-md py-3 rounded-xl font-bold text-label-caps text-on-surface-variant hover:text-on-surface active:scale-95 transition-all disabled:opacity-60 disabled:pointer-events-none"
             >
               Cancel
-            </Button>
+            </button>
           </div>
         </div>
       )}

@@ -1,17 +1,23 @@
 import Link from 'next/link'
 import { MatchFull } from '@/services/matches'
-import { activityTypeIcon, activityTypeLabel, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+
+function sportIcon(sport: string): string {
+  const m: Record<string, string> = {
+    TENNIS: 'sports_tennis', PADEL: 'sports_tennis',
+    SQUASH: 'sports_handball', BADMINTON: 'sports_badminton',
+    PICKLEBALL: 'sports_tennis', RACQUETBALL: 'sports_handball',
+  }
+  return m[sport] ?? 'sports'
+}
+
+function sportLabel(sport: string): string {
+  return sport.replace(/_/g, ' ').split(' ').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')
+}
 
 interface MatchCardProps {
   match: MatchFull
   currentUserId: string
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  PENDING: 'bg-yellow-900/30 text-yellow-300 border-yellow-700/50',
-  CONFIRMED: 'bg-green-900/30 text-green-300 border-green-700/50',
-  DISPUTED: 'bg-red-900/30 text-red-300 border-red-700/50',
-  CANCELLED: 'bg-slate-800/60 text-slate-400 border-slate-700/50',
 }
 
 export function MatchCard({ match, currentUserId }: MatchCardProps) {
@@ -21,62 +27,85 @@ export function MatchCard({ match, currentUserId }: MatchCardProps) {
   const awayPartner = match.participants.find((p) => p.role === 'AWAY_PARTNER')
 
   const isHomeSide = currentUserId === home?.userId || currentUserId === homePartner?.userId
-  const isWinner = match.winnerSide === (isHomeSide ? 'HOME' : 'AWAY')
-  const resultLabel = match.status === 'CONFIRMED' ? (isWinner ? 'W' : 'L') : null
+  const isWinner = match.status === 'CONFIRMED' && match.winnerSide === (isHomeSide ? 'HOME' : 'AWAY')
+  const isConfirmed = match.status === 'CONFIRMED'
+  const isPending = match.status === 'PENDING'
+  const isDisputed = match.status === 'DISPUTED'
 
-  const score = `${match.homeSetWins}-${match.awaySetWins}`
-  const icon = activityTypeIcon(match.sport as never)
-  const label = activityTypeLabel(match.sport as never)
-  const formatLabel = match.format === 'DOUBLES' ? 'Doubles' : 'Singles'
+  const borderColor = isConfirmed
+    ? isWinner ? 'border-l-primary-fixed' : 'border-l-error'
+    : isPending ? 'border-l-secondary'
+    : isDisputed ? 'border-l-error'
+    : 'border-l-outline-variant'
+
+  const statusColor = isConfirmed
+    ? isWinner ? 'text-primary-fixed' : 'text-error'
+    : isPending ? 'text-secondary'
+    : isDisputed ? 'text-error'
+    : 'text-on-surface-variant'
+
+  const statusLabel = isConfirmed
+    ? isWinner ? 'Won' : 'Lost'
+    : isPending ? 'Pending'
+    : match.status.charAt(0) + match.status.slice(1).toLowerCase()
+
+  const homeName = home?.user.nickname ?? home?.user.name ?? '?'
+  const awayName = away?.user.nickname ?? away?.user.name ?? '?'
+  const homePartnerName = homePartner ? (homePartner.user.nickname ?? homePartner.user.name) : null
+  const awayPartnerName = awayPartner ? (awayPartner.user.nickname ?? awayPartner.user.name) : null
+
   const playedAt = new Date(match.playedAt)
+  const dateStr = playedAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
   return (
     <Link
       href={`/app/matches/${match.id}`}
-      className="block rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors"
+      className={cn(
+        'glass-card rounded-xl p-md flex flex-col gap-sm border-l-4 hover:bg-surface-container-high transition-colors active:scale-[0.99]',
+        borderColor,
+      )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-2xl shrink-0">{icon}</span>
-          <div className="min-w-0">
-            <div className="font-semibold text-white text-sm">
-              {label} {formatLabel}
-            </div>
-            <div className="text-xs text-white/50 mt-0.5">
-              {playedAt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-              {match.court && <> · {match.court.name}</>}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {resultLabel && (
-            <span className={cn(
-              'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold',
-              isWinner ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400',
-            )}>
-              {resultLabel}
-            </span>
-          )}
-          <span className={cn(
-            'text-xs px-2 py-0.5 rounded-full border font-medium',
-            STATUS_STYLES[match.status] ?? STATUS_STYLES.CANCELLED,
-          )}>
-            {match.status.charAt(0) + match.status.slice(1).toLowerCase()}
+      {/* Top row: sport + status + date */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span
+            className="material-symbols-outlined text-primary-fixed-dim"
+            style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}
+          >
+            {sportIcon(match.sport)}
+          </span>
+          <span className="text-label-caps text-on-surface">
+            {sportLabel(match.sport)} {match.format === 'DOUBLES' ? 'Doubles' : 'Singles'}
           </span>
         </div>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-label-caps', statusColor)}>{statusLabel}</span>
+          <span className="text-label-caps text-on-surface-variant">{dateStr}</span>
+        </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-sm">
-        <div className="text-white/70 truncate">
-          {home?.user.nickname ?? home?.user.name}
-          {homePartner && ` / ${homePartner.user.nickname ?? homePartner.user.name}`}
-          <span className="text-white/40 mx-1">vs</span>
-          {away?.user.nickname ?? away?.user.name}
-          {awayPartner && ` / ${awayPartner.user.nickname ?? awayPartner.user.name}`}
+      {/* Players vs + score */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-body-md font-bold text-white truncate">
+            {homeName}{homePartnerName ? ` / ${homePartnerName}` : ''}
+          </p>
+          <p className="text-label-caps text-on-surface-variant">
+            vs {awayName}{awayPartnerName ? ` / ${awayPartnerName}` : ''}
+          </p>
         </div>
-        <div className="font-mono font-semibold text-white shrink-0 ml-2">{score}</div>
+        <div className="text-headline-md font-black text-on-surface shrink-0">
+          {match.homeSetWins}<span className="text-on-surface-variant mx-1">-</span>{match.awaySetWins}
+        </div>
       </div>
+
+      {/* Pending indicator */}
+      {isPending && (
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-1.5 rounded-full bg-secondary pulse-green" />
+          <span className="text-label-caps text-secondary">Awaiting confirmation</span>
+        </div>
+      )}
     </Link>
   )
 }
