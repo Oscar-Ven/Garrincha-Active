@@ -69,79 +69,60 @@ export function ChallengesControls({
   return (
     <div
       className={cn(
-        'space-y-4 transition-opacity duration-200',
+        'space-y-md transition-opacity duration-200',
         isPending && 'opacity-60 pointer-events-none',
       )}
     >
       {/* ── Tabs ── */}
-      <div className="flex items-center border-b border-slate-700">
-        <button
-          type="button"
-          onClick={() => handleTabChange('available')}
-          className={cn(
-            'relative px-5 py-3 text-sm font-medium transition-colors',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
-            'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-t-full after:transition-colors',
-            activeTab === 'available'
-              ? 'text-green-400 font-semibold after:bg-green-500'
-              : 'text-slate-400 hover:text-slate-200 after:bg-transparent',
-          )}
-        >
-          Available
-          <span
-            className={cn(
-              'ml-2 rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums',
-              activeTab === 'available'
-                ? 'bg-green-600/30 text-green-300'
-                : 'bg-slate-700 text-slate-400',
-            )}
-          >
-            {availableCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleTabChange('mine')}
-          className={cn(
-            'relative px-5 py-3 text-sm font-medium transition-colors',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
-            'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-t-full after:transition-colors',
-            activeTab === 'mine'
-              ? 'text-green-400 font-semibold after:bg-green-500'
-              : 'text-slate-400 hover:text-slate-200 after:bg-transparent',
-          )}
-        >
-          My Challenges
-          <span
-            className={cn(
-              'ml-2 rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums',
-              activeTab === 'mine'
-                ? 'bg-green-600/30 text-green-300'
-                : 'bg-slate-700 text-slate-400',
-            )}
-          >
-            {myCount}
-          </span>
-        </button>
+      <div className="flex items-center border-b border-white/10">
+        {(['available', 'mine'] as const).map((tab) => {
+          const isActive = activeTab === tab
+          const count = tab === 'available' ? availableCount : myCount
+          const label = tab === 'available' ? 'Available' : 'My Challenges'
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => handleTabChange(tab)}
+              className={cn(
+                'relative px-md py-sm text-label-caps font-medium transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest',
+                'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-t-full after:transition-colors',
+                isActive
+                  ? 'text-primary-fixed font-bold after:bg-primary-fixed'
+                  : 'text-on-surface-variant hover:text-on-surface after:bg-transparent',
+              )}
+            >
+              {label}
+              <span
+                className={cn(
+                  'ml-2 rounded-full px-1.5 py-0.5 text-label-caps font-bold tabular-nums',
+                  isActive
+                    ? 'bg-primary-fixed/10 text-primary-fixed'
+                    : 'bg-surface-container-highest text-on-surface-variant',
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Type filter pills ── */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wide mr-1">
-          Filter:
-        </span>
+        <span className="text-label-caps text-on-surface-variant mr-1">Filter:</span>
         {allTypes.map((type) => (
           <button
             key={type}
             type="button"
             onClick={() => handleTypeChange(type)}
             className={cn(
-              'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900',
+              'rounded-full border px-md py-0.5 text-label-caps font-medium transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest',
               activeType === type
-                ? 'border-green-600 bg-green-600/20 text-green-300'
-                : 'border-slate-600 bg-slate-800 text-slate-400 hover:border-slate-400 hover:text-slate-200',
+                ? 'border-primary-fixed bg-primary-fixed/10 text-primary-fixed'
+                : 'glass-card text-on-surface-variant hover:text-on-surface',
             )}
           >
             {type === 'ALL' ? 'All Types' : CHALLENGE_TYPE_LABELS[type]}

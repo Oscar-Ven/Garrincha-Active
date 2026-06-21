@@ -150,7 +150,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
             >
               <button
                 type="submit"
-                className="w-full bg-primary-fixed-dim text-on-primary font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all"
+                className="w-full bg-primary-fixed-dim text-on-primary-fixed font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all"
               >
                 {isFollowing ? 'UNFOLLOW' : 'FOLLOW'}
               </button>
@@ -169,7 +169,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
         {isSelf && (
           <Link
             href="/app/profile"
-            className="w-full bg-primary-fixed-dim text-on-primary font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all text-center mt-md"
+            className="w-full bg-primary-fixed-dim text-on-primary-fixed font-bold text-label-caps py-3 rounded-xl action-glow active:scale-95 transition-all text-center mt-md"
           >
             EDIT PROFILE
           </Link>
@@ -270,7 +270,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
             <div className="flex gap-lg min-w-max">
               {player.userBadges.slice(0, 10).map(ub => (
                 <div key={ub.id} className="flex flex-col items-center gap-2 w-17.5">
-                  <div className="w-14 h-14 rounded-full border-2 border-primary-fixed-dim flex items-center justify-center bg-primary-container/10">
+                  <div className="w-14 h-14 rounded-full border-2 border-primary-fixed-dim flex items-center justify-center bg-primary-fixed/10">
                     <span
                       className="material-symbols-outlined text-primary-fixed-dim"
                       style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}

@@ -20,29 +20,29 @@ interface RewardCardProps {
 function categoryStyle(category: RewardCategory): string {
   switch (category) {
     case RewardCategory.DISCOUNT:
-      return 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+      return 'bg-secondary/10 text-secondary border-secondary/20'
     case RewardCategory.MERCHANDISE:
-      return 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+      return 'bg-secondary-container/20 text-secondary border-secondary-container/30'
     case RewardCategory.FREE_SESSION:
-      return 'bg-green-500/20 text-green-300 border-green-500/30'
+      return 'bg-primary-fixed/10 text-primary-fixed border-primary-fixed/20'
     case RewardCategory.FOOD_DRINK:
-      return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+      return 'bg-[#FFD700]/10 text-[#FFD700] border-[#FFD700]/20'
     case RewardCategory.TOURNAMENT_ENTRY:
-      return 'bg-red-500/20 text-red-300 border-red-500/30'
+      return 'bg-error/10 text-error border-error/20'
     case RewardCategory.SPONSOR_VOUCHER:
-      return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+      return 'bg-white/5 text-on-surface-variant border-white/10'
     case RewardCategory.VIP_ACCESS:
-      return 'bg-pink-500/20 text-pink-300 border-pink-500/30'
+      return 'bg-[#FFD700]/10 text-[#FFD700] border-[#FFD700]/20'
     default:
-      return 'bg-slate-500/20 text-slate-300 border-slate-500/30'
+      return 'bg-white/5 text-on-surface-variant border-white/10'
   }
 }
 
 function stockIndicator(stock: number): { label: string; color: string } {
-  if (stock === 0) return { label: 'Out of stock', color: 'text-red-400' }
-  if (stock <= 5) return { label: `${stock} left`, color: 'text-orange-400' }
-  if (stock <= 20) return { label: `${stock} available`, color: 'text-yellow-400' }
-  return { label: 'In stock', color: 'text-green-400' }
+  if (stock === 0)   return { label: 'Out of stock',       color: 'text-error' }
+  if (stock <= 5)    return { label: `${stock} left`,       color: 'text-[#FFD700]/80' }
+  if (stock <= 20)   return { label: `${stock} available`,  color: 'text-[#FFD700]' }
+  return               { label: 'In stock',                 color: 'text-primary-fixed' }
 }
 
 export function RewardCard({ reward }: RewardCardProps) {
@@ -54,13 +54,13 @@ export function RewardCard({ reward }: RewardCardProps) {
   return (
     <div
       className={cn(
-        'group relative flex flex-col rounded-2xl border border-slate-700/60 bg-slate-800/60 backdrop-blur-sm overflow-hidden',
-        'transition-all duration-200 hover:border-green-600/50 hover:shadow-lg hover:shadow-green-900/20',
+        'group relative flex flex-col glass-card rounded-xl overflow-hidden',
+        'transition-all duration-200 hover:border-primary-fixed/30 hover:shadow-lg hover:shadow-primary-fixed/5',
         isOutOfStock && 'opacity-60'
       )}
     >
       {/* Image area */}
-      <div className="relative h-44 w-full bg-slate-900 overflow-hidden">
+      <div className="relative h-44 w-full bg-surface-container-lowest overflow-hidden">
         {reward.imageUrl ? (
           <Image
             src={reward.imageUrl}
@@ -71,14 +71,19 @@ export function RewardCard({ reward }: RewardCardProps) {
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <span className="text-5xl select-none opacity-30">🎁</span>
+            <span
+              className="material-symbols-outlined text-on-surface-variant opacity-30"
+              style={{ fontSize: '48px', fontVariationSettings: "'FILL' 1" }}
+            >
+              redeem
+            </span>
           </div>
         )}
 
         {/* Category badge */}
         <span
           className={cn(
-            'absolute top-3 left-3 rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide',
+            'absolute top-3 left-3 rounded-full border px-2.5 py-0.5 text-label-caps font-bold',
             categoryStyle(reward.category)
           )}
         >
@@ -87,8 +92,8 @@ export function RewardCard({ reward }: RewardCardProps) {
 
         {/* Out of stock overlay */}
         {isOutOfStock && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60">
-            <span className="rounded-full bg-slate-800/90 px-3 py-1 text-sm font-semibold text-red-400 border border-red-500/40">
+          <div className="absolute inset-0 flex items-center justify-center bg-surface-container-lowest/60">
+            <span className="rounded-full bg-surface-container/90 px-md py-xs text-label-caps font-bold text-error border border-error/30">
               Out of Stock
             </span>
           </div>
@@ -96,37 +101,37 @@ export function RewardCard({ reward }: RewardCardProps) {
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col gap-2 p-4">
+      <div className="flex flex-1 flex-col gap-sm p-md">
         {/* Provider label */}
         {provider && providerType && (
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-widest truncate">
+          <p className="text-label-caps text-on-surface-variant truncate">
             {providerType}: {provider.name}
           </p>
         )}
 
         {/* Title */}
-        <h3 className="text-base font-bold text-white leading-snug line-clamp-2">
+        <h3 className="text-body-md font-bold text-on-surface leading-snug line-clamp-2">
           {reward.title}
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-slate-400 line-clamp-2 flex-1">
+        <p className="text-label-caps text-on-surface-variant line-clamp-2 flex-1">
           {reward.description}
         </p>
 
         {/* Stock indicator */}
-        <p className={cn('text-xs font-medium', stockColor)}>
+        <p className={cn('text-label-caps font-bold', stockColor)}>
           {stockLabel}
         </p>
 
         {/* Footer: points cost + redeem button */}
-        <div className="mt-1 flex items-center justify-between gap-3 pt-2 border-t border-slate-700/50">
+        <div className="mt-xs flex items-center justify-between gap-sm pt-sm border-t border-white/10">
           {/* Points cost */}
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-extrabold text-yellow-400 leading-none">
+            <span className="text-stats-xl font-extrabold text-[#FFD700] leading-none">
               {reward.pointsCost.toLocaleString()}
             </span>
-            <span className="text-xs font-semibold text-yellow-500/80 uppercase tracking-wide">
+            <span className="text-label-caps font-bold text-[#FFD700]/80">
               pts
             </span>
           </div>
@@ -137,10 +142,10 @@ export function RewardCard({ reward }: RewardCardProps) {
             aria-disabled={isOutOfStock}
             tabIndex={isOutOfStock ? -1 : undefined}
             className={cn(
-              'rounded-xl px-4 py-2 text-sm font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500',
+              'rounded-xl px-md py-sm text-label-caps font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed',
               isOutOfStock
-                ? 'pointer-events-none bg-slate-700 text-slate-500 cursor-not-allowed'
-                : 'bg-green-600 text-white hover:bg-green-500 active:scale-95 shadow-sm shadow-green-900/40'
+                ? 'pointer-events-none bg-surface-container-highest text-on-surface-variant cursor-not-allowed'
+                : 'bg-primary-fixed text-on-primary-fixed hover:bg-primary-fixed-dim active:scale-95'
             )}
           >
             Redeem

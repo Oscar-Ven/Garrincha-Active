@@ -29,50 +29,25 @@ function parseType(raw: string | undefined): ChallengeType | 'ALL' {
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
 function EmptyState({ tab }: { tab: 'available' | 'mine' }) {
-  if (tab === 'mine') {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-700 bg-slate-800/40 px-6 py-16 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-700">
-          <svg
-            className="h-7 w-7 text-slate-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-          </svg>
-        </div>
-        <div>
-          <p className="text-base font-semibold text-slate-200">No challenges joined yet</p>
-          <p className="mt-1 text-sm text-slate-400">
-            Head over to the Available tab to find challenges that match your goals.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  const symbol = tab === 'mine' ? 'workspace_premium' : 'emoji_events'
+  const title = tab === 'mine' ? 'No challenges joined yet' : 'No active challenges found'
+  const body = tab === 'mine'
+    ? 'Head over to the Available tab to find challenges that match your goals.'
+    : 'Try clearing the type filter or check back soon for new challenges.'
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-700 bg-slate-800/40 px-6 py-16 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-700">
-        <svg
-          className="h-7 w-7 text-slate-500"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          aria-hidden="true"
+    <div className="flex flex-col items-center justify-center gap-md glass-card rounded-xl border-dashed px-md py-16 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-highest">
+        <span
+          className="material-symbols-outlined text-on-surface-variant"
+          style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-        </svg>
+          {symbol}
+        </span>
       </div>
       <div>
-        <p className="text-base font-semibold text-slate-200">No active challenges found</p>
-        <p className="mt-1 text-sm text-slate-400">
-          Try clearing the type filter or check back soon for new challenges.
-        </p>
+        <p className="text-body-md font-bold text-on-surface">{title}</p>
+        <p className="mt-xs text-label-caps text-on-surface-variant">{body}</p>
       </div>
     </div>
   )
@@ -90,18 +65,18 @@ function SummaryStats({
   completedCount: number
 }) {
   return (
-    <div className="grid grid-cols-3 gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/40 p-4">
+    <div className="grid grid-cols-3 gap-sm glass-card rounded-xl p-md">
       <div className="flex flex-col items-center gap-0.5 text-center">
-        <span className="text-2xl font-bold text-white">{totalAvailable}</span>
-        <span className="text-xs text-slate-400">Active Challenges</span>
+        <span className="text-stats-xl font-bold text-on-surface">{totalAvailable}</span>
+        <span className="text-label-caps text-on-surface-variant">Active Challenges</span>
       </div>
-      <div className="flex flex-col items-center gap-0.5 text-center border-x border-slate-700">
-        <span className="text-2xl font-bold text-green-400">{totalJoined}</span>
-        <span className="text-xs text-slate-400">Joined</span>
+      <div className="flex flex-col items-center gap-0.5 text-center border-x border-white/10">
+        <span className="text-stats-xl font-bold text-primary-fixed">{totalJoined}</span>
+        <span className="text-label-caps text-on-surface-variant">Joined</span>
       </div>
       <div className="flex flex-col items-center gap-0.5 text-center">
-        <span className="text-2xl font-bold text-yellow-400">{completedCount}</span>
-        <span className="text-xs text-slate-400">Completed</span>
+        <span className="text-stats-xl font-bold text-[#FFD700]">{completedCount}</span>
+        <span className="text-label-caps text-on-surface-variant">Completed</span>
       </div>
     </div>
   )
@@ -121,20 +96,17 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
   const activeTab = parseTab(resolvedParams.tab)
   const activeType = parseType(resolvedParams.type)
 
-  // Load all active challenges with user participation data in a single query
   const allActiveChallenges = await getChallenges({
     activeOnly: true,
     userId: user.id,
     ...(activeType !== 'ALL' ? { type: activeType } : {}),
   })
 
-  // Load user's joined challenges (may include ended ones)
   const allJoinedChallenges = await getChallenges({
     userId: user.id,
     ...(activeType !== 'ALL' ? { type: activeType } : {}),
   }).then((cs) => cs.filter((c) => c.userParticipant != null))
 
-  // For summary stats, get unfiltered counts
   const allChallengesUnfiltered = await getChallenges({
     activeOnly: true,
     userId: user.id,
@@ -146,19 +118,18 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
     (c) => c.userParticipant?.isCompleted === true,
   ).length
 
-  // Determine which list to show based on active tab
   const displayedChallenges =
     activeTab === 'available' ? allActiveChallenges : allJoinedChallenges
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-lg">
       {/* ── Page Header ── */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-md">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+          <h1 className="text-headline-md font-black italic tracking-tight text-primary-fixed">
             Challenges
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-xs text-label-caps text-on-surface-variant">
             Compete, earn points, and unlock badges by hitting your targets.
           </p>
         </div>
@@ -193,7 +164,7 @@ export default async function ChallengesPage({ searchParams }: ChallengesPagePro
       {displayedChallenges.length === 0 ? (
         <EmptyState tab={activeTab} />
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-3">
           {displayedChallenges.map((challenge) => (
             <ChallengeCard
               key={challenge.id}

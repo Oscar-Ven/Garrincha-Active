@@ -35,40 +35,30 @@ function PointsBanner({
   redemptionCount: number
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-950/60 via-slate-900 to-slate-900 p-6">
+    <div className="relative overflow-hidden glass-card rounded-xl border border-[#FFD700]/20 p-md bg-linear-to-br from-[#FFD700]/5 to-transparent">
       {/* Decorative glow */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-yellow-500/10 blur-3xl"
+        className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[#FFD700]/5 blur-3xl"
       />
 
-      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
         {/* Points display */}
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-yellow-500/20 border border-yellow-500/30">
-            <svg
-              className="h-7 w-7 text-yellow-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              aria-hidden="true"
+        <div className="flex items-center gap-md">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
+            <span
+              className="material-symbols-outlined text-[#FFD700]"
+              style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-              />
-            </svg>
+              stars
+            </span>
           </div>
           <div>
-            <p className="text-sm font-medium text-yellow-500/80 uppercase tracking-widest">
-              Your Points Balance
-            </p>
-            <p className="text-4xl font-extrabold text-yellow-400 leading-tight tabular-nums">
+            <p className="text-label-caps text-[#FFD700]/80">Your Points Balance</p>
+            <p className="text-stats-xl font-extrabold text-[#FFD700] leading-tight tabular-nums">
               {points.toLocaleString()}
             </p>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-label-caps text-on-surface-variant mt-0.5">
               {redemptionCount === 0
                 ? 'No redemptions yet'
                 : `${redemptionCount} reward${redemptionCount === 1 ? '' : 's'} redeemed`}
@@ -79,22 +69,14 @@ function PointsBanner({
         {/* My Redemptions CTA */}
         <Link
           href="/app/wallet"
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-5 py-2.5 text-sm font-semibold text-yellow-300 transition-all duration-150 hover:bg-yellow-500/20 hover:border-yellow-500/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+          className="inline-flex shrink-0 items-center gap-sm glass-card rounded-xl border border-[#FFD700]/20 px-md py-sm text-label-caps font-bold text-[#FFD700] transition-colors hover:bg-[#FFD700]/10"
         >
-          <svg
-            className="h-4 w-4 shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            aria-hidden="true"
+          <span
+            className="material-symbols-outlined"
+            style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"
-            />
-          </svg>
+            account_balance_wallet
+          </span>
           My Redemptions
         </Link>
       </div>
@@ -115,7 +97,7 @@ function CatalogStats({
 }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-sm text-slate-400">
+      <span className="text-label-caps text-on-surface-variant">
         {category
           ? `${shown} reward${shown === 1 ? '' : 's'} in this category`
           : `${total} reward${total === 1 ? '' : 's'} available`}
@@ -128,28 +110,20 @@ function CatalogStats({
 
 function EmptyState({ hasFilter }: { hasFilter: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-700 bg-slate-800/40 px-6 py-20 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-700">
-        <svg
-          className="h-7 w-7 text-slate-500"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
-          aria-hidden="true"
+    <div className="flex flex-col items-center justify-center gap-md glass-card rounded-xl border-dashed px-md py-20 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-highest">
+        <span
+          className="material-symbols-outlined text-on-surface-variant"
+          style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"
-          />
-        </svg>
+          redeem
+        </span>
       </div>
       <div>
-        <p className="text-base font-semibold text-slate-200">
+        <p className="text-body-md font-bold text-on-surface">
           {hasFilter ? 'No rewards in this category' : 'No rewards available'}
         </p>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-xs text-label-caps text-on-surface-variant">
           {hasFilter
             ? 'Try the "All" tab to see rewards across all categories.'
             : 'Check back soon — new rewards are added regularly.'}
@@ -158,7 +132,7 @@ function EmptyState({ hasFilter }: { hasFilter: boolean }) {
       {hasFilter && (
         <Link
           href="/app/rewards"
-          className="mt-1 rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-600"
+          className="mt-xs glass-card rounded-xl px-md py-sm text-label-caps font-bold text-on-surface hover:bg-surface-container-high transition-colors"
         >
           View all rewards
         </Link>
@@ -180,21 +154,17 @@ export default async function RewardsPage({ searchParams }: RewardsPageProps) {
   const resolvedParams = await searchParams
   const activeCategory = parseCategory(resolvedParams.category)
 
-  // Parallel data fetching
   const [playerProfile, allActiveRewards, filteredRewards, redemptionCount] =
     await Promise.all([
       prisma.playerProfile.findUnique({
         where: { userId: user.id },
         select: { totalPoints: true },
       }),
-      // All active rewards for total count (no category filter)
       getRewards({ activeOnly: true }),
-      // Filtered rewards for the grid
       getRewards({
         activeOnly: true,
         ...(activeCategory ? { category: activeCategory } : {}),
       }),
-      // How many redemptions the user has
       prisma.rewardRedemption.count({
         where: { userId: user.id },
       }),
@@ -203,13 +173,13 @@ export default async function RewardsPage({ searchParams }: RewardsPageProps) {
   const totalPoints = playerProfile?.totalPoints ?? 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-lg">
       {/* ── Page Header ── */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+        <h1 className="text-headline-md font-black italic tracking-tight text-primary-fixed">
           Rewards Catalog
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-xs text-label-caps text-on-surface-variant">
           Redeem your hard-earned points for exclusive rewards.
         </p>
       </div>
@@ -218,10 +188,8 @@ export default async function RewardsPage({ searchParams }: RewardsPageProps) {
       <PointsBanner points={totalPoints} redemptionCount={redemptionCount} />
 
       {/* ── Category Filter Tabs ── */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-          Filter by category
-        </p>
+      <div className="space-y-sm">
+        <p className="text-label-caps text-on-surface-variant">Filter by category</p>
         <Suspense fallback={null}>
           <CategoryTabs />
         </Suspense>
@@ -238,7 +206,7 @@ export default async function RewardsPage({ searchParams }: RewardsPageProps) {
       {filteredRewards.length === 0 ? (
         <EmptyState hasFilter={activeCategory !== undefined} />
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-3">
           {filteredRewards.map((reward) => (
             <RewardCard
               key={reward.id}

@@ -2,8 +2,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { Building2, TrendingUp, Leaf } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const metadata = { title: 'Center League | Garrincha Active' }
 
@@ -66,12 +64,7 @@ async function getCenterLeague(period: 'week' | 'month' | 'all') {
   return ranked
 }
 
-const RANK_ICONS = ['🥇', '🥈', '🥉']
-const ZONE_LABELS = {
-  promotion: 'bg-green-900/40 text-green-300 border-green-800/40',
-  midtable: 'bg-slate-800 border-slate-700',
-  relegation: 'bg-red-950/20 border-red-900/30',
-}
+const RANK_SYMBOLS = ['emoji_events', 'workspace_premium', 'military_tech']
 
 export default async function CenterLeaguePage({
   searchParams,
@@ -93,24 +86,32 @@ export default async function CenterLeaguePage({
   const bottom3 = Math.floor(league.length * 0.75)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-lg">
       <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Building2 className="h-6 w-6 text-blue-400" /> Center League Table
+        <h1 className="text-headline-md font-black italic tracking-tight text-primary-fixed flex items-center gap-sm">
+          <span
+            className="material-symbols-outlined"
+            style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
+          >
+            location_city
+          </span>
+          Center League Table
         </h1>
-        <p className="text-slate-400 text-sm mt-1">
+        <p className="text-label-caps text-on-surface-variant mt-xs">
           Centers ranked by collective player activity — updated in real time.
         </p>
       </div>
 
       {/* Period tabs */}
-      <div className="flex gap-1 rounded-lg border border-slate-700 bg-slate-800 p-1 w-fit">
+      <div className="flex gap-1 glass-card rounded-xl p-1 w-fit">
         {(['week', 'month', 'all'] as const).map((p) => (
           <Link
             key={p}
             href={`/app/leaderboards/centers?period=${p}`}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-              period === p ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+            className={`rounded-lg px-md py-xs text-label-caps font-bold transition-colors ${
+              period === p
+                ? 'bg-primary-fixed text-on-primary-fixed'
+                : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
             {p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'All Time'}
@@ -119,67 +120,88 @@ export default async function CenterLeaguePage({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 text-xs">
-        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-green-600" /><span className="text-slate-400">Promotion zone (top 25%)</span></div>
-        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-red-700" /><span className="text-slate-400">Relegation zone (bottom 25%)</span></div>
-        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-full bg-yellow-500" /><span className="text-slate-400">Your center</span></div>
+      <div className="flex flex-wrap gap-md text-label-caps text-on-surface-variant">
+        <div className="flex items-center gap-1.5">
+          <div className="h-3 w-3 rounded-full bg-primary-fixed" />
+          <span>Promotion zone (top 25%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-3 w-3 rounded-full bg-error" />
+          <span>Relegation zone (bottom 25%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-3 w-3 rounded-full bg-[#FFD700]" />
+          <span>Your center</span>
+        </div>
       </div>
 
       {/* Table */}
-      <Card className="bg-slate-800 border-slate-700 overflow-hidden">
+      <div className="glass-card rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-700">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 w-12">#</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Center</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 hidden sm:table-cell">Players</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Activities</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 hidden md:table-cell">Distance</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Points</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400 hidden lg:table-cell">
-                  <span className="flex items-center justify-end gap-1"><Leaf className="h-3 w-3 text-green-400" />CO₂</span>
+              <tr className="border-b border-white/10">
+                <th className="px-md py-sm text-left text-label-caps text-on-surface-variant w-12">#</th>
+                <th className="px-md py-sm text-left text-label-caps text-on-surface-variant">Center</th>
+                <th className="px-sm py-sm text-right text-label-caps text-on-surface-variant hidden sm:table-cell">Players</th>
+                <th className="px-sm py-sm text-right text-label-caps text-on-surface-variant">Activities</th>
+                <th className="px-sm py-sm text-right text-label-caps text-on-surface-variant hidden md:table-cell">Distance</th>
+                <th className="px-sm py-sm text-right text-label-caps text-on-surface-variant">Points</th>
+                <th className="px-md py-sm text-right text-label-caps text-on-surface-variant hidden lg:table-cell">
+                  <span className="flex items-center justify-end gap-1">
+                    <span className="material-symbols-outlined text-primary-fixed" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>eco</span>
+                    CO₂
+                  </span>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/50">
+            <tbody className="divide-y divide-white/5">
               {league.map((center) => {
                 const isUser = center.id === userCenter?.centerId
                 const zone = center.rank <= top3 ? 'promotion' : center.rank > bottom3 ? 'relegation' : 'midtable'
                 return (
                   <tr
                     key={center.id}
-                    className={`transition-colors ${
+                    className={`transition-colors hover:bg-surface-container-high ${
                       isUser
-                        ? 'bg-yellow-900/20 border-l-2 border-l-yellow-500'
+                        ? 'bg-[#FFD700]/5 border-l-2 border-l-[#FFD700]'
                         : zone === 'promotion'
-                        ? 'border-l-2 border-l-green-700'
+                        ? 'border-l-2 border-l-primary-fixed'
                         : zone === 'relegation'
-                        ? 'border-l-2 border-l-red-800'
+                        ? 'border-l-2 border-l-error'
                         : ''
-                    } hover:bg-slate-700/30`}
+                    }`}
                   >
-                    <td className="px-4 py-3">
-                      <span className="text-lg">{RANK_ICONS[center.rank - 1] ?? center.rank}</span>
+                    <td className="px-md py-sm">
+                      {RANK_SYMBOLS[center.rank - 1] ? (
+                        <span
+                          className="material-symbols-outlined text-[#FFD700]"
+                          style={{ fontSize: '20px', fontVariationSettings: "'FILL' 1" }}
+                        >
+                          {RANK_SYMBOLS[center.rank - 1]}
+                        </span>
+                      ) : (
+                        <span className="text-label-caps font-bold text-on-surface-variant">{center.rank}</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3">
-                      <p className={`font-semibold ${isUser ? 'text-yellow-300' : 'text-white'}`}>{center.name}</p>
-                      {center.city && <p className="text-xs text-slate-500">{center.city}</p>}
+                    <td className="px-md py-sm">
+                      <p className={`font-bold ${isUser ? 'text-[#FFD700]' : 'text-on-surface'}`}>{center.name}</p>
+                      {center.city && <p className="text-label-caps text-on-surface-variant">{center.city}</p>}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-300 hidden sm:table-cell">{center.playerCount}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{center.periodActivities}</td>
-                    <td className="px-4 py-3 text-right text-slate-300 hidden md:table-cell">{center.periodDistance.toFixed(1)} km</td>
-                    <td className="px-4 py-3 text-right font-bold text-yellow-400">{center.periodPoints.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-green-400 hidden lg:table-cell">{center.totalCarbonSaved.toFixed(1)} kg</td>
+                    <td className="px-sm py-sm text-right text-on-surface hidden sm:table-cell">{center.playerCount}</td>
+                    <td className="px-sm py-sm text-right text-on-surface">{center.periodActivities}</td>
+                    <td className="px-sm py-sm text-right text-on-surface hidden md:table-cell">{center.periodDistance.toFixed(1)} km</td>
+                    <td className="px-sm py-sm text-right font-bold text-[#FFD700]">{center.periodPoints.toLocaleString()}</td>
+                    <td className="px-md py-sm text-right text-primary-fixed hidden lg:table-cell">{center.totalCarbonSaved.toFixed(1)} kg</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
 
-      <Link href="/app/leaderboards" className="text-sm text-slate-400 hover:text-white transition-colors">
+      <Link href="/app/leaderboards" className="text-label-caps text-on-surface-variant hover:text-on-surface transition-colors">
         ← Back to Leaderboards
       </Link>
     </div>
